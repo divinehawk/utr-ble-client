@@ -1,0 +1,4 @@
+bleak>=0.21
+pynacl>=1.5
+passlib>=1.7
+msgpack>=1.0
