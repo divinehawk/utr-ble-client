@@ -32,6 +32,7 @@ log = logging.getLogger("utr_ble")
 
 UUID_READ  = "d587c47f-ac6e-4388-a31c-e6cd380ba043"  # device->phone (notify)
 UUID_WRITE = "9280f26c-a56f-43ea-b769-d5d732e1ac67"  # phone->device (write)
+SERVICE_DATA_UUID = "0000252a-0000-1000-8000-00805f9b34fb"
 
 # Bootstrap transport key — hardcoded in firmware.
 # Same value used by G3 Instant (zerotypic/unifi-ble-client confirms this).
@@ -205,7 +206,7 @@ def unpack_msg(buf: bytes) -> tuple:
 
 
 # ---------------------------------------------------------------------------
-# Config encoding 
+# Config encoding
 # ---------------------------------------------------------------------------
 
 def parse_config(raw: str) -> dict:
@@ -429,19 +430,81 @@ class UtrSession:
 
 
 # ---------------------------------------------------------------------------
-# Connection
+# Connection  (fixed: callback-based scan + forced LE connect)
 # ---------------------------------------------------------------------------
 
-async def connect(address: str, username: str = "ui", password: Optional[str] = None) -> UtrSession:
-    client = BleakClient(address)
-    await client.connect()
-    log.info(f"Connected to {address}")
+async def find_and_connect(target: Optional[str], user: str, pw: Optional[str]) -> UtrSession:
+    log.info("Searching for UTR over LE...")
+    target_clean = target.replace(":", "").lower() if target else None
+    if not target_clean:
+        log.warning("No address specified — will connect to the first UTR device found")
+    target_dev = None
+    stop_event = asyncio.Event()
+
+    identity_mac = None
+
+    def detection_callback(dev, adv):
+        nonlocal target_dev, identity_mac
+        if target_dev:
+            return
+        if SERVICE_DATA_UUID in adv.service_data:
+            raw = adv.service_data[SERVICE_DATA_UUID]
+            identity = "".join(f"{b:02x}" for b in raw)
+            if not target_clean or target_clean == identity:
+                target_dev = dev
+                identity_mac = ":".join(f"{b:02X}" for b in raw)
+                log.info("Found UTR %s", identity_mac)
+                stop_event.set()
+
+    scanner = BleakScanner(
+        detection_callback,
+        scanning_mode="active",
+        bluez={"filters": {"Transport": "le", "DuplicateData": True}},
+    )
+
+    await scanner.start()
+    try:
+        await asyncio.wait_for(stop_event.wait(), timeout=15.0)
+    except asyncio.TimeoutError:
+        pass
+    await scanner.stop()
+
+    if not target_dev:
+        raise RuntimeError("UTR not found based on provided Identity.")
+
+    # Give BlueZ time to fully tear down the scan before issuing a connection
+    # request — without this pause, BlueZ may dispatch a BR/EDR Create Connection
+    # instead of LE Create Connection for public-address devices.
+    await asyncio.sleep(1.0)
+
+    client = BleakClient(
+        target_dev,
+        timeout=20.0,
+        bluez={"address_type": "public"},
+    )
+    log.info(f"Connecting to {identity_mac}...")
+    try:
+        await client.connect()
+    except (TimeoutError, asyncio.TimeoutError):
+        if sys.platform.startswith("linux"):
+            log.error(
+                f"Connection to {identity_mac} timed out. BlueZ may have attempted "
+                f"a BR/EDR connection instead of LE. "
+                f"Fix: set 'ControllerMode = le' in /etc/bluetooth/main.conf "
+                f"and restart bluetooth, or run: sudo btmgmt bredr off"
+            )
+        else:
+            log.error(f"Connection to {identity_mac} timed out.")
+        sys.exit(1)
+    except BaseException as e:
+        log.error(f"Connection to {identity_mac} failed: {e}")
+        sys.exit(1)
+    log.info(f"Connected to {identity_mac}")
 
     s = UtrSession(client=client)
     await client.start_notify(UUID_READ, s._on_notify)
-
     await s.transport_handshake()
-    await s.shell_authenticate(username, password)
+    await s.shell_authenticate(user, pw)
     return s
 
 
@@ -453,14 +516,14 @@ async def main():
     import argparse
 
     p = argparse.ArgumentParser(description="UniFi Travel Router BLE config tool")
-    p.add_argument("--address",  help="BLE address (skip to scan)")
-    p.add_argument("--name",     default="UTR", help="BLE device name prefix (default: UTR)")
+    p.add_argument("--address",  help="Identity MAC from sticker or scan")
+    p.add_argument("--user", default="ui", help="Shell username (default: ui)")
     p.add_argument("--password", default=None,
                    help="Device admin password (omit if no password has been set)")
-    p.add_argument("--user", default="ui", help="Shell username (default: ui)")
     p.add_argument("--verbose", action="store_true", help="Enable debug logging")
 
     sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("scan", help="Continuous scan for UTRs (Ctrl+C to stop)")
     sub.add_parser("dump", help="Print all config keys")
 
     sp = sub.add_parser("ssh", help="Enable or disable SSH")
@@ -476,18 +539,31 @@ async def main():
     if args.verbose:
         log.setLevel(logging.DEBUG)
 
-    if args.address:
-        addr = args.address
-    else:
-        log.info(f"Scanning for '{args.name}'...")
-        dev = await BleakScanner.find_device_by_name(args.name, timeout=15)
-        if not dev:
-            log.error(f"Device '{args.name}' not found")
-            sys.exit(1)
-        addr = dev.address
-        log.info(f"Found {dev.name} [{addr}]")
+    if args.cmd == "scan":
+        log.info("Scan started (Identity MACs only). Press Ctrl+C to stop.")
+        seen = set()
+        try:
+            async with BleakScanner(
+                scanning_mode="active",
+                bluez={"filters": {"Transport": "le", "DuplicateData": True}},
+            ) as scanner:
+                while True:
+                    found = False
+                    for dev, adv in scanner.discovered_devices_and_advertisement_data.values():
+                        if SERVICE_DATA_UUID in adv.service_data:
+                            identity = ":".join(f"{b:02X}" for b in adv.service_data[SERVICE_DATA_UUID])
+                            if identity not in seen:
+                                seen.add(identity)
+                                print(f"[{time.strftime('%H:%M:%S')}] UTR Identity: {identity} | RSSI: {adv.rssi} dBm")
+                            found = True
+                    if not found:
+                        print(f"[{time.strftime('%H:%M:%S')}] Scanning...", end="\r")
+                    await asyncio.sleep(3.0)
+        except KeyboardInterrupt:
+            print("\nScan stopped.")
+        return
 
-    session = await connect(addr, args.user, args.password)
+    session = await find_and_connect(args.address, args.user, args.password)
     try:
         if args.cmd == "dump":
             for k, v in sorted((await session.read_config()).items()):
@@ -506,7 +582,10 @@ async def main():
             print(await session.shell(" ".join(args.command)))
 
     except Exception as e:
-        log.error(f"Error: {e}")
+        if log.isEnabledFor(logging.DEBUG):
+            log.exception(f"Error: {e}")
+        else:
+            log.error(f"Error: {e}")
         sys.exit(1)
     finally:
         await session.client.stop_notify(UUID_READ)
@@ -514,4 +593,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        pass
