@@ -141,13 +141,14 @@ def unpack_dh_pubkey(data: bytes) -> bytes:
     return pubkey
 
 
-def pack_auth_ok() -> bytes:
-    return msgpack.dumps(("AUTH", "DH"))
+def pack_auth_ok(pubkey: bytes) -> bytes:
+    p = msgpack.Packer()
+    return p.pack_array_header(3) + p.pack("AUTH") + p.pack("DH") + p.pack(bytes(pubkey))
 
 
 def unpack_auth_ok(data: bytes) -> bool:
-    h1, h2 = msgpack.loads(data, raw=False)
-    return h1 == "AUTH" and h2 == "DH"
+    obj = msgpack.loads(data, raw=False)
+    return isinstance(obj, (list, tuple)) and len(obj) >= 2 and obj[0] == "AUTH" and obj[1] == "DH"
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +295,7 @@ class UtrSession:
 
         session_key = compute_session_key(priv, pub, srv_pub)
 
-        await self._send(PROTO_AUTH, pack_auth_ok())
+        await self._send(PROTO_AUTH, pack_auth_ok(pub))
 
         _, _, ack = await self._recv()
         assert unpack_auth_ok(ack), "Transport DH auth-ok not echoed"
