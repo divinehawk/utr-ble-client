@@ -16,6 +16,7 @@ allows you to:
 
 -   Python 3.9+
 -   macOS or Linux (BLE support required)
+-   Linux note: You may have to force low energy (LE) mode in BlueZ either by setting "ControllerMode = le" in /etc/bluetooth/main.conf or running: sudo btmgmt bredr off
 
 ### Python dependencies
 
