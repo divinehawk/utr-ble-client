@@ -163,8 +163,12 @@ libraries are bundled in the file, so it works without internet.
 
 ### Running it
 
-Open it over a secure context — `https://`, `http://localhost`, or a
-local static server:
+A hosted copy is at **https://divinehawk.github.io/utr/**. It's
+published from `web/` by the Pages workflow on every push to `main`,
+and runs entirely in your browser; nothing is sent to the server.
+
+To run it yourself, open it over a secure context — `https://`,
+`http://localhost`, or a local static server:
 
 ``` bash
 cd web && python3 -m http.server 8777
