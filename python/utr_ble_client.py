@@ -324,7 +324,7 @@ class UtrSession:
         guid = self._new_guid()
         await self._send(PROTO_BINARY,
                          pack_action_msg(guid, "hdshkStart",
-                                         {"user": "ui",
+                                         {"user": username,
                                           "key": pub.hex()}))
 
         _, resp_body = await self._recv_response()
