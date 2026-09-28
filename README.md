@@ -180,7 +180,9 @@ handshake and loads the config. Features:
   written in small chunks, read back and verified, and only then
   applied.
 - A **shell** with command history, quick-command chips, and copy.
-- Quick SSH on/off toggles and a log tab.
+- An SSH on/off switch that shows the router's current setting, and a
+  log tab.
+- Light and dark themes (follows the OS; toggle in the sidebar).
 
 ### Platform support
 

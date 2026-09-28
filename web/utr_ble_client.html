@@ -3,458 +3,563 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
 <title>UTR BLE Client</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
-
+  /* Network-controller style: light gray canvas, white cards, blue accent.
+     System fonts only, so the page needs no network at all. */
   :root {
-    --bg: #0a0c0f;
-    --bg-2: #0d1013;
-    --surface: #111418;
-    --surface-2: #151a1f;
-    --border: #1e2329;
-    --border-bright: #2d3540;
-    --text: #c8d0db;
-    --text-dim: #5a6474;
-    --text-dimmer: #3d4551;
-    --accent: #00d4aa;
-    --accent-dim: #00a882;
-    --accent-glow: rgba(0,212,170,0.12);
-    --warn: #f5a623;
-    --error: #e05252;
-    --ok: #00d4aa;
-    --info: #4a9eff;
-    --dirty: #f5a623;
-    --mono: 'IBM Plex Mono', ui-monospace, monospace;
-    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+    color-scheme: light;
+    --bg: #f4f5f7;
+    --surface: #ffffff;
+    --surface-2: #f8f9fa;
+    --hover: #f1f3f5;
+    --border: #e3e5e8;
+    --border-strong: #d0d3d8;
+    --text: #1f2226;
+    --text-2: #4e545c;
+    --muted: #7e858f;
+    --blue: #006fff;
+    --blue-hover: #005ee0;
+    --blue-soft: rgba(0, 111, 255, 0.09);
+    --green: #22a55b;
+    --green-soft: rgba(34, 165, 91, 0.12);
+    --amber: #e8940c;
+    --amber-soft: rgba(232, 148, 12, 0.14);
+    --red: #e0424b;
+    --red-soft: rgba(224, 66, 75, 0.1);
+    --shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    --shadow-pop: 0 8px 28px rgba(16, 24, 40, 0.16);
+    --term-bg: #16181b;
+    --term-text: #d6dae0;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --radius: 6px;
+    --sidebar: 56px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #131416; --surface: #1b1d20; --surface-2: #202226; --hover: #25282c;
+      --border: #2a2d32; --border-strong: #3a3e45;
+      --text: #e7e9ec; --text-2: #b3b8bf; --muted: #868d97;
+      --blue: #3d8bff; --blue-hover: #5c9dff; --blue-soft: rgba(61, 139, 255, 0.14);
+      --green: #36c26f; --green-soft: rgba(54, 194, 111, 0.14);
+      --amber: #f0a52b; --amber-soft: rgba(240, 165, 43, 0.16);
+      --red: #f0585f; --red-soft: rgba(240, 88, 95, 0.14);
+      --shadow: none; --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.5);
+      --term-bg: #0e0f11;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #131416; --surface: #1b1d20; --surface-2: #202226; --hover: #25282c;
+    --border: #2a2d32; --border-strong: #3a3e45;
+    --text: #e7e9ec; --text-2: #b3b8bf; --muted: #868d97;
+    --blue: #3d8bff; --blue-hover: #5c9dff; --blue-soft: rgba(61, 139, 255, 0.14);
+    --green: #36c26f; --green-soft: rgba(54, 194, 111, 0.14);
+    --amber: #f0a52b; --amber-soft: rgba(240, 165, 43, 0.16);
+    --red: #f0585f; --red-soft: rgba(240, 88, 95, 0.14);
+    --shadow: none; --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.5);
+    --term-bg: #0e0f11;
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-
   html, body { height: 100%; }
-
   body {
-    background:
-      radial-gradient(1200px 600px at 50% -10%, rgba(0,212,170,0.05), transparent 60%),
-      var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 14px;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 24px 16px 80px;
+    background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 13px; line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
   }
+  svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6;
+          stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 
-  .wrap { width: 100%; max-width: 860px; }
+  /* ---------- Shell layout: icon rail + main ---------- */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: var(--sidebar); flex-shrink: 0; background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 12px 0; position: sticky; top: 0; height: 100vh;
+  }
+  .glyph {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--blue); color: #fff;
+    display: grid; place-items: center; margin-bottom: 14px;
+  }
+  .glyph svg.i { width: 18px; height: 18px; stroke-width: 1.8; }
+  .nav { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+  .tab {
+    position: relative; width: 40px; height: 40px; border-radius: var(--radius);
+    display: grid; place-items: center; background: none; border: none;
+    color: var(--muted); cursor: pointer; transition: background .12s, color .12s;
+  }
+  .tab:hover { background: var(--hover); color: var(--text); }
+  .tab.active { background: var(--blue-soft); color: var(--blue); }
+  .tab .tip {
+    position: absolute; left: 48px; top: 50%; transform: translateY(-50%);
+    background: var(--text); color: var(--surface); font-size: 12px; white-space: nowrap;
+    padding: 4px 8px; border-radius: 4px; opacity: 0; pointer-events: none; transition: opacity .12s;
+    z-index: 5;
+  }
+  .tab:hover .tip { opacity: 1; }
+  .tab .badge { position: absolute; top: 3px; right: 1px; margin: 0; }
+  .sidebar .spacer { flex: 1; }
 
-  /* ---------- Header ---------- */
-  header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 20px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--border);
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    height: 52px; background: var(--surface); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px; padding: 0 24px;
+    position: sticky; top: 0; z-index: 10;
   }
-  header .brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-  header h1 {
-    font-family: var(--mono);
-    font-size: 18px; font-weight: 600;
-    color: var(--accent); letter-spacing: 0.04em;
-  }
-  header .tagline { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+  .topbar h1 { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+  .topbar .sub { color: var(--muted); font-size: 12px; }
+  .content { width: 100%; max-width: 980px; padding: 24px; flex: 1; }
+  .footer { padding: 16px 24px 24px; color: var(--muted); font-size: 11px; max-width: 980px; }
 
-  /* Connection pill */
-  .conn-pill {
-    margin-left: auto;
-    display: flex; align-items: center; gap: 8px;
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 100px; padding: 6px 14px;
-    font-family: var(--mono); font-size: 12px;
-    white-space: nowrap;
+  /* ---------- Status ---------- */
+  .status-pill {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+    padding: 4px 10px; border-radius: 100px; background: var(--surface-2);
+    border: 1px solid var(--border); font-size: 12px; color: var(--text-2); white-space: nowrap;
   }
-  .conn-pill .who { color: var(--text); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
-
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--text-dimmer);
-    transition: background 0.3s, box-shadow 0.3s; flex-shrink: 0;
-  }
-  .status-dot.connected { background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: pulse 2.4s infinite; }
-  .status-dot.working   { background: var(--warn); box-shadow: 0 0 8px var(--warn); animation: pulse 1s infinite; }
-  .status-dot.error     { background: var(--error); box-shadow: 0 0 8px var(--error); }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.connected { background: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+  .status-dot.working   { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-soft); animation: pulse 1s infinite; }
+  .status-dot.error     { background: var(--red); box-shadow: 0 0 0 3px var(--red-soft); }
+  @keyframes pulse { 50% { opacity: .45; } }
 
   .compat-warning {
-    background: rgba(245,166,35,0.08);
-    border: 1px solid rgba(245,166,35,0.3);
-    border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;
-    font-size: 12px; color: var(--warn); display: none; font-family: var(--mono);
+    display: none; background: var(--amber-soft); color: var(--text);
+    border: 1px solid var(--amber); border-radius: var(--radius);
+    padding: 10px 14px; margin-bottom: 16px;
   }
   .compat-warning.visible { display: block; }
 
   /* ---------- Cards ---------- */
   .card {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 10px; margin-bottom: 16px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden;
   }
   .card-header {
-    padding: 11px 16px; background: rgba(255,255,255,0.02);
-    border-bottom: 1px solid var(--border);
-    font-family: var(--mono); font-size: 11px; font-weight: 600;
-    letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase;
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 10px; min-height: 48px;
+    padding: 0 18px; border-bottom: 1px solid var(--border);
+    font-size: 14px; font-weight: 600;
   }
-  .card-body { padding: 16px; }
+  .card-header .actions { margin-left: auto; display: flex; gap: 4px; }
+  .card-body { padding: 18px; }
 
   /* ---------- Forms ---------- */
-  .field-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
-  .field-group { flex: 1; min-width: 150px; }
-  label {
-    display: block; font-family: var(--mono); font-size: 10px;
-    letter-spacing: 0.08em; color: var(--text-dim);
-    text-transform: uppercase; margin-bottom: 6px;
+  .field-row { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+  .field-group { flex: 1; min-width: 180px; }
+  label { display: block; font-size: 12px; color: var(--text-2); margin-bottom: 6px; font-weight: 500; }
+  .hint { color: var(--muted); font-weight: 400; }
+  input:not([type]), input[type="text"], input[type="password"] {
+    width: 100%; height: 34px; background: var(--surface); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: 4px;
+    font: inherit; font-size: 13px; padding: 0 10px; outline: none;
+    transition: border-color .12s, box-shadow .12s;
   }
-  input[type="text"], input[type="password"] {
-    width: 100%; background: var(--bg); border: 1px solid var(--border-bright);
-    border-radius: 6px; color: var(--text); font-family: var(--mono);
-    font-size: 13px; padding: 9px 11px; outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-  input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-glow); }
+  input::placeholder { color: var(--muted); }
+  input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  input:disabled { opacity: .55; cursor: not-allowed; background: var(--surface-2); }
+  .mono { font-family: var(--mono); font-size: 12px; }
 
   .pw-wrap { position: relative; }
-  .pw-wrap input { padding-right: 44px; }
+  .pw-wrap input { padding-right: 56px; }
   .pw-toggle {
-    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; color: var(--text-dim); cursor: pointer;
-    font-family: var(--mono); font-size: 10px; padding: 4px 6px; letter-spacing: 0.05em;
+    position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--blue); cursor: pointer;
+    font: inherit; font-size: 12px; padding: 4px 8px;
   }
-  .pw-toggle:hover { color: var(--accent); }
 
-  input:disabled { opacity: 0.5; cursor: not-allowed; }
-
-  .advanced-toggle {
-    background: none; border: none; color: var(--text-dim);
-    font-family: var(--mono); font-size: 11px; cursor: pointer;
-    padding: 4px 0; margin-bottom: 4px; letter-spacing: 0.04em;
-  }
-  .advanced-toggle:hover { color: var(--accent); }
-  #advancedRow { display: none; }
-  #advancedRow.open { display: flex; }
 
   /* ---------- Buttons ---------- */
   .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  button {
-    font-family: var(--mono); font-size: 12px; font-weight: 500;
-    letter-spacing: 0.03em; padding: 9px 16px; border-radius: 6px;
-    border: 1px solid transparent; cursor: pointer;
-    transition: all 0.15s; white-space: nowrap;
+  button { font: inherit; }
+  .btn-primary, .btn-secondary, .btn-danger {
+    height: 34px; padding: 0 16px; border-radius: 4px; font-size: 13px; font-weight: 500;
+    cursor: pointer; border: 1px solid transparent; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px; transition: background .12s, border-color .12s, color .12s;
   }
-  button:disabled { opacity: 0.3; cursor: not-allowed; }
-  .btn-primary { background: var(--accent); color: #001510; border-color: var(--accent); font-weight: 600; }
-  .btn-primary:hover:not(:disabled) { background: #00efc0; border-color: #00efc0; box-shadow: 0 0 16px var(--accent-glow); }
-  .btn-secondary { background: transparent; color: var(--text); border-color: var(--border-bright); }
-  .btn-secondary:hover:not(:disabled) { border-color: var(--accent-dim); color: var(--accent); }
-  .btn-danger { background: transparent; color: var(--error); border-color: rgba(224,82,82,0.4); }
-  .btn-danger:hover:not(:disabled) { background: rgba(224,82,82,0.08); border-color: var(--error); }
-  .btn-sm { padding: 5px 10px; font-size: 11px; }
-  .btn-ghost { background: none; border: none; color: var(--text-dim); padding: 5px 8px; }
-  .btn-ghost:hover:not(:disabled) { color: var(--accent); }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--blue-hover); }
+  .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+  .btn-secondary:hover:not(:disabled) { background: var(--hover); }
+  .btn-danger { background: var(--surface); color: var(--red); border-color: var(--border-strong); }
+  .btn-danger:hover:not(:disabled) { background: var(--red-soft); border-color: var(--red); }
+  .btn-sm { height: 30px; padding: 0 12px; font-size: 12px; }
+  .btn-ghost {
+    height: 28px; padding: 0 10px; background: none; border: none; border-radius: 4px;
+    color: var(--blue); cursor: pointer; font-size: 12px;
+  }
+  .btn-ghost:hover:not(:disabled) { background: var(--blue-soft); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
 
-  /* ---------- Tabs ---------- */
-  .tabs {
-    display: flex; gap: 4px; margin-bottom: 16px;
-    border-bottom: 1px solid var(--border); padding-bottom: 0;
-  }
-  .tab {
-    background: none; border: none; border-bottom: 2px solid transparent;
-    color: var(--text-dim); font-family: var(--mono); font-size: 12px;
-    letter-spacing: 0.06em; text-transform: uppercase; padding: 10px 16px;
-    cursor: pointer; transition: all 0.15s; position: relative;
-  }
-  .tab:hover { color: var(--text); }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
   .badge {
-    display: inline-block; min-width: 16px; padding: 1px 5px; margin-left: 6px;
-    background: var(--dirty); color: #1a1200; border-radius: 8px;
-    font-size: 10px; font-weight: 600; vertical-align: middle;
-    text-align: center; letter-spacing: 0;
+    display: inline-block; min-width: 18px; height: 18px; line-height: 18px; padding: 0 5px;
+    border-radius: 9px; background: var(--amber); color: #fff;
+    font-size: 11px; font-weight: 600; text-align: center;
   }
-  /* Panel visibility is controlled entirely by the .section-hidden class. */
   .section-hidden { display: none !important; }
 
+  /* ---------- Device summary (connected) ---------- */
+  .device { display: flex; align-items: center; gap: 14px; }
+  .device .avatar {
+    width: 44px; height: 44px; border-radius: 10px; background: var(--blue-soft); color: var(--blue);
+    display: grid; place-items: center;
+  }
+  .device .avatar svg.i { width: 24px; height: 24px; }
+  .device .name { font-size: 15px; font-weight: 600; }
+  .device .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .device .btn-row { margin-left: auto; }
+  .chip-status {
+    display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; vertical-align: 2px;
+    padding: 1px 8px; border-radius: 100px; font-size: 11px; font-weight: 600;
+    background: var(--green-soft); color: var(--green);
+  }
+  .chip-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* ---------- Settings rows + switch ---------- */
+  .setting { display: flex; align-items: center; gap: 16px; padding: 14px 18px; }
+  .setting + .setting { border-top: 1px solid var(--border); }
+  .setting .title { font-weight: 500; }
+  .setting .desc { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .switch { margin-left: auto; position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 100%; height: 100%; position: absolute; margin: 0; cursor: pointer; z-index: 1; }
+  .switch .track {
+    position: absolute; inset: 0; border-radius: 10px; background: var(--border-strong);
+    transition: background .15s;
+  }
+  .switch .track::after {
+    content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+    border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform .15s;
+  }
+  .switch input:checked + .track { background: var(--blue); }
+  .switch input:checked + .track::after { transform: translateX(16px); }
+  .switch input:focus-visible + .track { box-shadow: 0 0 0 3px var(--blue-soft); }
+  .switch input:disabled { cursor: not-allowed; }
+  .switch input:disabled + .track { opacity: .5; }
+
   /* ---------- Config editor ---------- */
-  .cfg-toolbar {
-    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-    margin-bottom: 12px;
-  }
-  .cfg-search {
-    flex: 1; min-width: 160px; position: relative;
-  }
-  .cfg-search input { padding-left: 30px; }
-  .cfg-search .icon {
-    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
-    color: var(--text-dim); font-size: 12px; pointer-events: none;
-  }
-  .cfg-meta { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-left: auto; }
+  .cfg-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .cfg-search { flex: 1; min-width: 200px; position: relative; }
+  .cfg-search input { padding-left: 32px; }
+  .cfg-search svg.i { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--muted); }
+  .cfg-meta { color: var(--muted); font-size: 12px; }
+  .cfg-toolbar .cfg-meta { margin-left: 4px; }
 
-  .cfg-table-wrap { max-height: 460px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
-  table.cfg { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  .cfg-table-wrap { max-height: 480px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  table.cfg { width: 100%; border-collapse: collapse; }
   table.cfg thead th {
-    position: sticky; top: 0; z-index: 1; text-align: left;
-    padding: 8px 10px; background: var(--surface-2);
-    border-bottom: 1px solid var(--border-bright); color: var(--text-dim);
-    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    position: sticky; top: 0; z-index: 1; background: var(--surface-2);
+    text-align: left; font-weight: 500; font-size: 12px; color: var(--muted);
+    padding: 9px 12px; border-bottom: 1px solid var(--border);
   }
-  table.cfg tbody td { padding: 4px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  table.cfg tbody tr:hover td { background: rgba(255,255,255,0.015); }
-  table.cfg td.k { color: var(--accent-dim); word-break: break-all; width: 42%; }
-  table.cfg td.v { width: 52%; }
+  table.cfg tbody td { padding: 0 12px; height: 38px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table.cfg tbody tr:last-child td { border-bottom: none; }
+  table.cfg tbody tr:hover td { background: var(--hover); }
+  table.cfg td.k { font-family: var(--mono); font-size: 12px; color: var(--text-2); overflow-wrap: anywhere; width: 42%; padding-top: 6px; padding-bottom: 6px; }
+  table.cfg td.v { width: 52%; padding-left: 4px; }
   table.cfg td.act { width: 6%; text-align: right; white-space: nowrap; }
+  table.cfg td.act .btn-ghost { color: var(--muted); }
+  table.cfg td.act .btn-ghost:hover { color: var(--red); background: var(--red-soft); }
   table.cfg input.vedit {
-    width: 100%; background: transparent; border: 1px solid transparent;
-    border-radius: 4px; color: var(--text); font-family: var(--mono);
-    font-size: 12px; padding: 5px 7px;
+    height: 28px; border-color: transparent; background: transparent;
+    font-family: var(--mono); font-size: 12px; padding: 0 8px;
   }
-  table.cfg input.vedit:hover { border-color: var(--border-bright); }
-  table.cfg input.vedit:focus { border-color: var(--accent-dim); background: var(--bg); outline: none; }
-  table.cfg tr.dirty td.k { color: var(--dirty); }
-  table.cfg tr.dirty input.vedit { border-color: rgba(245,166,35,0.4); }
-  table.cfg tr.added td.k::before { content: '＋ '; color: var(--ok); }
-  table.cfg tr.removed { opacity: 0.4; }
+  table.cfg input.vedit:hover { border-color: var(--border-strong); background: var(--surface); }
+  table.cfg input.vedit:focus { border-color: var(--blue); background: var(--surface); }
+  table.cfg tr.dirty td { background: var(--amber-soft); }
+  table.cfg tr.dirty td.k { color: var(--text); box-shadow: inset 3px 0 0 var(--amber); }
+  table.cfg tr.added td.k::before { content: '+ '; color: var(--green); font-weight: 600; }
+  table.cfg tr.removed td { opacity: .5; }
   table.cfg tr.removed input.vedit { text-decoration: line-through; }
-  .cfg-empty { padding: 32px; text-align: center; color: var(--text-dim); font-family: var(--mono); font-size: 12px; }
+  .cfg-empty { padding: 36px; text-align: center; color: var(--muted); }
 
-  .addkey-row { display: flex; gap: 8px; margin-top: 10px; }
+  .addkey-row { display: flex; gap: 8px; margin-top: 12px; }
   .addkey-row input { flex: 1; }
 
+  .apply-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 12px 18px; border-top: 1px solid var(--border); background: var(--surface-2);
+  }
+  .apply-bar .cfg-meta { margin-left: 4px; }
+
   /* ---------- Terminal ---------- */
-  .term {
-    background: #05070a; border: 1px solid var(--border); border-radius: 8px;
-    font-family: var(--mono); font-size: 12px; padding: 12px;
-    height: 340px; overflow-y: auto; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
-  }
-  .term .cmd { color: var(--accent); }
-  .term .cmd::before { content: '$ '; color: var(--text-dim); }
-  .term .out { color: var(--text); }
-  .term .err { color: var(--error); }
-  .term .sys { color: var(--text-dim); font-style: italic; }
-  .term-input-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
-  .term-prompt { color: var(--accent); font-family: var(--mono); font-size: 13px; }
-  .term-input-row input { flex: 1; }
-  .quick-cmds { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .quick-cmds { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .chip {
-    background: var(--surface-2); border: 1px solid var(--border-bright);
-    color: var(--text-dim); font-family: var(--mono); font-size: 11px;
-    padding: 4px 10px; border-radius: 100px; cursor: pointer; transition: all 0.15s;
+    height: 26px; padding: 0 10px; border-radius: 100px; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border-strong); color: var(--text-2);
+    font-family: var(--mono); font-size: 11px; transition: all .12s;
   }
-  .chip:hover { color: var(--accent); border-color: var(--accent-dim); }
-  .chip.danger:hover { color: var(--error); border-color: var(--error); }
+  .chip:hover { border-color: var(--blue); color: var(--blue); }
+  .chip.danger:hover { border-color: var(--red); color: var(--red); }
+  .term {
+    background: var(--term-bg); color: var(--term-text); border-radius: var(--radius);
+    font-family: var(--mono); font-size: 12px; line-height: 1.6; padding: 12px 14px;
+    height: 360px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+  }
+  .term .cmd { color: #6fb1ff; }
+  .term .cmd::before { content: '$ '; color: #7e858f; }
+  .term .sys { color: #7e858f; font-style: italic; }
+  .term-input-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .term-input-row input { flex: 1; font-family: var(--mono); font-size: 12px; }
+  .term-prompt { color: var(--muted); font-family: var(--mono); }
 
   /* ---------- Log ---------- */
   #log {
-    background: #05070a; border: 1px solid var(--border); border-radius: 8px;
-    font-family: var(--mono); font-size: 11px; padding: 12px;
-    height: 340px; overflow-y: auto; line-height: 1.7;
+    font-family: var(--mono); font-size: 12px; line-height: 1.7; height: 420px; overflow-y: auto;
+    padding: 10px 14px;
   }
+  .log-ts { color: var(--muted); margin-right: 10px; }
   .log-info { color: var(--text); }
-  .log-ok { color: var(--ok); }
-  .log-warn { color: var(--warn); }
-  .log-error { color: var(--error); }
-  .log-dim { color: var(--text-dim); }
-  .log-ts { color: var(--text-dimmer); margin-right: 8px; }
+  .log-ok { color: var(--green); }
+  .log-warn { color: var(--amber); }
+  .log-error { color: var(--red); }
+  .log-dim { color: var(--muted); }
 
   /* ---------- Toasts ---------- */
   #toasts {
     position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
     display: flex; flex-direction: column; gap: 8px; z-index: 1000; align-items: center;
-    pointer-events: none; width: calc(100% - 32px); max-width: 520px;
+    width: calc(100% - 32px); max-width: 440px; pointer-events: none;
   }
   .toast {
-    pointer-events: auto; width: 100%;
-    background: var(--surface-2); border: 1px solid var(--border-bright);
-    border-left-width: 3px; border-radius: 8px; padding: 11px 14px;
-    font-family: var(--mono); font-size: 12px; color: var(--text);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-    animation: toastIn 0.2s ease; display: flex; align-items: center; gap: 10px;
+    pointer-events: auto; width: 100%; display: flex; align-items: center; gap: 10px;
+    background: var(--surface); color: var(--text); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: var(--shadow-pop);
+    padding: 11px 14px; font-size: 13px; animation: toastIn .18s ease;
   }
-  .toast.ok { border-left-color: var(--ok); }
-  .toast.error { border-left-color: var(--error); }
-  .toast.warn { border-left-color: var(--warn); }
-  .toast.info { border-left-color: var(--info); }
-  @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .toast::before { content: ''; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: var(--blue); }
+  .toast.ok::before { background: var(--green); }
+  .toast.error::before { background: var(--red); }
+  .toast.warn::before { background: var(--amber); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(6px); } }
 
   /* ---------- Busy overlay ---------- */
   #busy {
-    position: fixed; inset: 0; background: rgba(5,7,10,0.55);
-    display: none; align-items: center; justify-content: center; z-index: 900;
-    backdrop-filter: blur(2px);
+    position: fixed; inset: 0; z-index: 900; display: none;
+    align-items: center; justify-content: center; background: rgba(20, 22, 26, 0.28);
   }
   #busy.show { display: flex; }
-  .spinner {
-    width: 34px; height: 34px; border: 3px solid var(--border-bright);
-    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
+  #busy .box {
+    display: flex; align-items: center; gap: 12px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-pop);
+    padding: 14px 18px;
   }
-  #busy .label { margin-left: 14px; font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .spinner {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid var(--border-strong); border-top-color: var(--blue); animation: spin .7s linear infinite;
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  @media (max-width: 560px) {
-    header { flex-wrap: wrap; }
-    .conn-pill { margin-left: 0; }
+  /* ---------- Narrow screens: rail becomes a top strip ---------- */
+  @media (max-width: 640px) {
+    .app { flex-direction: column; }
+    .sidebar {
+      width: 100%; height: auto; flex-direction: row; position: static;
+      border-right: none; border-bottom: 1px solid var(--border); padding: 8px 12px;
+    }
+    .glyph { margin: 0 8px 0 0; }
+    .nav { flex-direction: row; }
+    .tab .tip { display: none; }
+    .topbar { padding: 0 16px; position: static; }
+    .topbar .sub { display: none; }
+    .content { padding: 16px; }
+    .device { flex-wrap: wrap; }
+    .device .btn-row { margin-left: 0; width: 100%; }
     table.cfg td.k { width: 40%; }
   }
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="app">
 
-<header>
-  <div class="brand">
-    <h1>UTR//BLE</h1>
-    <span class="tagline">UniFi Travel Router · BLE Config Client</span>
+<aside class="sidebar">
+  <div class="glyph" title="UTR BLE Client">
+    <!-- generic glyph: a small router with two waves -->
+    <svg class="i" viewBox="0 0 24 24"><rect x="4" y="13" width="16" height="6" rx="2"/><path d="M8 16h.01M12 16h.01"/><path d="M9 9.5a4.5 4.5 0 0 1 6 0M6.5 7a8 8 0 0 1 11 0"/></svg>
   </div>
-  <div class="conn-pill">
-    <span class="status-dot" id="connDot"></span>
-    <span class="who" id="connStatus">Disconnected</span>
-  </div>
-</header>
+  <nav class="nav section-hidden" id="tabs">
+    <button class="tab active" data-tab="config" aria-label="Settings">
+      <svg class="i" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      <span class="tip">Settings</span>
+    </button>
+    <button class="tab" data-tab="shell" aria-label="Shell">
+      <svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>
+      <span class="tip">Shell</span>
+    </button>
+    <button class="tab" data-tab="log" aria-label="Log">
+      <svg class="i" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>
+      <span class="tip">Log</span>
+      <span class="badge section-hidden" id="logBadge">0</span>
+    </button>
+  </nav>
+  <div class="spacer"></div>
+  <button class="tab" id="themeToggle" aria-label="Toggle theme">
+    <svg class="i" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>
+    <span class="tip">Light / dark</span>
+  </button>
+</aside>
 
-<div class="compat-warning" id="compatWarn">
-  ⚠ Web Bluetooth is not available. Use Chrome or Edge on desktop / Android. Safari and iOS are not supported.
-</div>
+<div class="main">
+  <header class="topbar">
+    <h1>UTR BLE Client</h1>
+    <span class="sub">Travel router configuration over Bluetooth</span>
+    <span class="status-pill">
+      <span class="status-dot" id="connDot"></span>
+      <span id="connStatus">Disconnected</span>
+    </span>
+  </header>
 
-<!-- Connection Card -->
-<div class="card" id="connCard">
-  <div class="card-header">Connection</div>
-  <div class="card-body">
-    <div class="field-row">
-      <div class="field-group">
-        <label>Username</label>
-        <input type="text" id="username" value="ui" autocomplete="off" spellcheck="false" />
-      </div>
-      <div class="field-group">
-        <label>Password</label>
-        <div class="pw-wrap">
-          <input type="password" id="password" placeholder="ui (default)" autocomplete="off" />
-          <button class="pw-toggle" id="pwToggle" type="button" tabindex="-1">SHOW</button>
+  <main class="content">
+    <div class="compat-warning" id="compatWarn">
+      Web Bluetooth is not available in this browser. Use Chrome or Edge on desktop or Android. Safari and iOS are not supported.
+    </div>
+
+    <!-- Connection -->
+    <section class="card" id="connCard">
+      <div class="card-header" id="connHeader">Connect to a router</div>
+
+      <div class="card-body" id="loginForm">
+        <div class="field-row">
+          <div class="field-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" value="ui" autocomplete="off" spellcheck="false" />
+          </div>
+          <div class="field-group">
+            <label for="password">Password</label>
+            <div class="pw-wrap">
+              <input type="password" id="password" placeholder="ui (default)" autocomplete="off" />
+              <button class="pw-toggle" id="pwToggle" type="button" tabindex="-1">Show</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn-primary" id="btnConnect">Connect</button>
         </div>
       </div>
-    </div>
 
-    <button class="advanced-toggle" id="advToggle" type="button">▸ Advanced</button>
-    <div class="field-row" id="advancedRow">
-      <div class="field-group" style="flex:1">
-        <label>Service UUID <span style="color:var(--accent-dim);font-size:9px;text-transform:none">(the device chooser only lists devices advertising this)</span></label>
-        <input type="text" id="serviceUuid" value="69b6a9f0-b7fa-4f67-b188-1d001bd30123" style="font-size:11px;color:var(--accent-dim)" spellcheck="false" />
-      </div>
-    </div>
-
-    <div class="btn-row" style="margin-top:6px">
-      <button class="btn-primary" id="btnConnect">Connect</button>
-    </div>
-  </div>
-</div>
-
-<!-- Tabs (shown once connected) -->
-<div class="tabs section-hidden" id="tabs">
-  <button class="tab active" data-tab="config">Config</button>
-  <button class="tab" data-tab="shell">Shell</button>
-  <button class="tab" data-tab="log">Log<span class="badge section-hidden" id="logBadge">0</span></button>
-</div>
-
-<!-- CONFIG PANEL -->
-<div class="tab-panel section-hidden" id="panel-config">
-  <div class="card">
-    <div class="card-header">
-      Configuration Editor
-      <span id="pendingBadge" class="badge section-hidden" style="margin-left:8px">0</span>
-    </div>
-    <div class="card-body">
-      <div class="cfg-toolbar">
-        <div class="cfg-search">
-          <span class="icon">⌕</span>
-          <input type="text" id="cfgSearch" placeholder="Filter keys / values…" spellcheck="false" />
+      <div class="card-body section-hidden" id="deviceSummary">
+        <div class="device">
+          <div class="avatar">
+            <svg class="i" viewBox="0 0 24 24"><rect x="4" y="13" width="16" height="6" rx="2"/><path d="M8 16h.01M12 16h.01"/><path d="M9 9.5a4.5 4.5 0 0 1 6 0M6.5 7a8 8 0 0 1 11 0"/></svg>
+          </div>
+          <div>
+            <div class="name"><span id="devName">UTR</span><span class="chip-status">Online</span></div>
+            <div class="meta"><span id="devKeys">— keys</span></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn-danger btn-sm" id="btnDisconnect">Disconnect</button>
+          </div>
         </div>
-        <button class="btn-secondary btn-sm" id="btnReload">Reload</button>
-        <button class="btn-secondary btn-sm" id="btnExport">Export ↓</button>
-        <button class="btn-secondary btn-sm" id="btnImport">Import ↑</button>
-        <input type="file" id="importFile" accept=".cfg,.txt,.conf" style="display:none" />
-        <span class="cfg-meta" id="cfgMeta"></span>
       </div>
+    </section>
 
-      <div class="cfg-table-wrap">
-        <table class="cfg">
-          <thead><tr><th>Key</th><th>Value</th><th></th></tr></thead>
-          <tbody id="cfgBody"></tbody>
-        </table>
-        <div class="cfg-empty" id="cfgEmpty">No config loaded yet — press <strong>Reload</strong>.</div>
-      </div>
+    <!-- SETTINGS PANEL -->
+    <div class="tab-panel section-hidden" id="panel-config">
+      <section class="card">
+        <div class="card-header">Services</div>
+        <div class="setting">
+          <div>
+            <div class="title">SSH</div>
+            <div class="desc">Runs sshd on the router. Toggling writes system.cfg and applies it.</div>
+          </div>
+          <label class="switch" aria-label="SSH">
+            <input type="checkbox" id="sshSwitch" disabled />
+            <span class="track"></span>
+          </label>
+        </div>
+      </section>
 
-      <div class="addkey-row">
-        <input type="text" id="newKey" placeholder="new.key" spellcheck="false" />
-        <input type="text" id="newVal" placeholder="value" spellcheck="false" />
-        <button class="btn-secondary btn-sm" id="btnAddKey">Add</button>
-      </div>
+      <section class="card">
+        <div class="card-header">
+          Configuration
+          <span id="pendingBadge" class="badge section-hidden">0</span>
+          <div class="actions">
+            <button class="btn-ghost" id="btnReload">Reload</button>
+            <button class="btn-ghost" id="btnExport">Export</button>
+            <button class="btn-ghost" id="btnImport">Import</button>
+            <input type="file" id="importFile" accept=".cfg,.txt,.conf" style="display:none" />
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="cfg-toolbar">
+            <div class="cfg-search">
+              <svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+              <input type="text" id="cfgSearch" placeholder="Search keys and values" spellcheck="false" />
+            </div>
+            <span class="cfg-meta" id="cfgMeta"></span>
+          </div>
 
-      <div class="btn-row" style="margin-top:14px">
-        <button class="btn-primary" id="btnApply" disabled>Apply Changes</button>
-        <button class="btn-secondary" id="btnDiscard" disabled>Discard</button>
-        <span class="cfg-meta" id="applyHint"></span>
-      </div>
+          <div class="cfg-table-wrap">
+            <table class="cfg">
+              <thead><tr><th>Key</th><th>Value</th><th></th></tr></thead>
+              <tbody id="cfgBody"></tbody>
+            </table>
+            <div class="cfg-empty" id="cfgEmpty">No configuration loaded. Use Reload to read it from the router.</div>
+          </div>
+
+          <div class="addkey-row">
+            <input type="text" class="mono" id="newKey" placeholder="new.key" spellcheck="false" />
+            <input type="text" class="mono" id="newVal" placeholder="value" spellcheck="false" />
+            <button class="btn-secondary btn-sm" id="btnAddKey">Add key</button>
+          </div>
+        </div>
+        <div class="apply-bar">
+          <button class="btn-primary" id="btnApply" disabled>Apply Changes</button>
+          <button class="btn-secondary" id="btnDiscard" disabled>Discard</button>
+          <span class="cfg-meta" id="applyHint"></span>
+        </div>
+      </section>
     </div>
-  </div>
 
-  <div class="card">
-    <div class="card-header">Quick Toggles</div>
-    <div class="card-body">
-      <div class="btn-row">
-        <button class="btn-secondary" id="btnSshOn">SSH On</button>
-        <button class="btn-secondary" id="btnSshOff">SSH Off</button>
-        <button class="btn-secondary" id="btnDump">Reload Config</button>
-      </div>
+    <!-- SHELL PANEL -->
+    <div class="tab-panel section-hidden" id="panel-shell">
+      <section class="card">
+        <div class="card-header">
+          Shell
+          <div class="actions">
+            <button class="btn-ghost" id="btnCopyTerm">Copy</button>
+            <button class="btn-ghost" id="btnClearTerm">Clear</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="quick-cmds" id="quickCmds"></div>
+          <div class="term" id="term"></div>
+          <div class="term-input-row">
+            <span class="term-prompt">$</span>
+            <input type="text" id="shellCmd" placeholder="Command (↑/↓ for history)" spellcheck="false" autocomplete="off" />
+            <button class="btn-primary" id="btnRun">Run</button>
+          </div>
+        </div>
+      </section>
     </div>
-  </div>
+
+    <!-- LOG PANEL -->
+    <div class="tab-panel section-hidden" id="panel-log">
+      <section class="card">
+        <div class="card-header">
+          Log
+          <div class="actions">
+            <button class="btn-ghost" id="btnCopyLog">Copy</button>
+            <button class="btn-ghost" id="btnClearLog">Clear</button>
+          </div>
+        </div>
+        <div id="log"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    Unofficial community tool. Not affiliated with or endorsed by Ubiquiti Inc.
+  </footer>
 </div>
-
-<!-- SHELL PANEL -->
-<div class="tab-panel section-hidden" id="panel-shell">
-  <div class="card">
-    <div class="card-header">
-      Shell
-      <button class="btn-ghost btn-sm" id="btnCopyTerm" style="margin-left:auto">Copy</button>
-      <button class="btn-ghost btn-sm" id="btnClearTerm">Clear</button>
-    </div>
-    <div class="card-body">
-      <div class="quick-cmds" id="quickCmds"></div>
-      <div class="term" id="term"></div>
-      <div class="term-input-row">
-        <span class="term-prompt">$</span>
-        <input type="text" id="shellCmd" placeholder="type a command · ↑/↓ history" spellcheck="false" autocomplete="off" />
-        <button class="btn-secondary" id="btnRun">Run</button>
-      </div>
-    </div>
-  </div>
 </div>
-
-<!-- LOG PANEL -->
-<div class="tab-panel section-hidden" id="panel-log">
-  <div class="card">
-    <div class="card-header">
-      Log
-      <button class="btn-ghost btn-sm" id="btnCopyLog" style="margin-left:auto">Copy</button>
-      <button class="btn-ghost btn-sm" id="btnClearLog">Clear</button>
-    </div>
-    <div class="card-body"><div id="log"></div></div>
-  </div>
-</div>
-
-</div><!-- /wrap -->
 
 <div id="toasts"></div>
-<div id="busy"><div class="spinner"></div><span class="label" id="busyLabel">Working…</span></div>
+<div id="busy"><div class="box"><div class="spinner"></div><span id="busyLabel">Working…</span></div></div>
 
 <!-- =========================================================
      BUNDLED LIBRARIES (inlined so the page works offline, e.g. while
@@ -1399,14 +1504,16 @@ function onDeviceDisconnected() {
 
 function setConnected(yes, name) {
   setConnDot(yes ? 'connected' : '');
-  $('connStatus').textContent = yes ? (name || 'Connected') : 'Disconnected';
-  const btn = $('btnConnect');
-  btn.textContent = yes ? 'Disconnect' : 'Connect';
-  btn.classList.toggle('btn-primary', !yes);
-  btn.classList.toggle('btn-danger', yes);
-  btn.disabled = false;
-  ['username', 'password', 'serviceUuid'].forEach(id => $(id).disabled = yes);
+  $('connStatus').textContent = yes ? 'Connected' : 'Disconnected';
+  // Connected: swap the login form for a device summary.
+  $('loginForm').classList.toggle('section-hidden', yes);
+  $('deviceSummary').classList.toggle('section-hidden', !yes);
+  $('connHeader').textContent = yes ? 'Device' : 'Connect to a router';
+  if (yes) $('devName').textContent = name || 'UTR';
+  else $('devKeys').textContent = '— keys';
+  $('btnConnect').disabled = false;
   updatePending();
+  syncSshSwitch();
 
   const cfgTab   = document.querySelector('.tab[data-tab="config"]');
   const shellTab = document.querySelector('.tab[data-tab="shell"]');
@@ -1430,21 +1537,17 @@ function setConnected(yes, name) {
 let activeTab = 'config';
 function showTab(name) {
   activeTab = name;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
   ['config','shell','log'].forEach(p => $('panel-'+p).classList.toggle('section-hidden', p !== name));
   if (name === 'log') { logUnseen = 0; $('logBadge').classList.add('section-hidden'); }
   if (name === 'shell') setTimeout(() => $('shellCmd').focus(), 30);
 }
-document.querySelectorAll('.tab').forEach(t =>
+document.querySelectorAll('.tab[data-tab]').forEach(t =>
   t.addEventListener('click', () => showTab(t.dataset.tab)));
 
 // ============================================================
 // BLE connect / disconnect
 // ============================================================
-function svcUuidValue() {
-  return ($('serviceUuid').value.trim() || UUID_SERVICE).toLowerCase();
-}
-
 // The UTR advertises its GATT service UUID, so the chooser filters on it
 // exactly: only UTRs are listed, with no name matching. Listing a service in a
 // filter also grants access to it after connecting.
@@ -1489,7 +1592,6 @@ async function establishSession(device, svcUuid) {
 
   session = s;
   LS.set('username', user);
-  LS.set('serviceUuid', $('serviceUuid').value.trim());
   setConnected(true, device.name || 'UTR');
   log('Session ready.', 'ok');
   toast('Connected · session ready', 'ok');
@@ -1498,7 +1600,7 @@ async function establishSession(device, svcUuid) {
 }
 
 async function connect() {
-  const svcUuid = svcUuidValue();
+  const svcUuid = UUID_SERVICE;
   $('btnConnect').disabled = true;
   setBusy(true, 'Choose your UTR…');
   try {
@@ -1530,7 +1632,7 @@ function handleConnError(err) {
   log(`Connection failed: ${raw}`, 'error');
   toast(`Connection failed: ${raw}`, 'error', 5000);
   if (/Services matching/i.test(raw)) {
-    log('The device does not expose the configured service UUID; check Advanced → Service UUID.', 'warn');
+    log(`The device does not expose the UTR service (${UUID_SERVICE}).`, 'warn');
   }
   setConnDot('error');
   $('connStatus').textContent = 'Error';
@@ -1553,10 +1655,6 @@ async function disconnect() {
   log('Disconnected.', 'warn');
 }
 
-function toggleConnection() {
-  if (session || wire) disconnect();
-  else connect();
-}
 
 // ============================================================
 // Action runner
@@ -1635,9 +1733,11 @@ function renderConfig() {
     if (addedKeys.has(key)) tr.classList.add('added');
     if (removedKeys.has(key)) tr.classList.add('removed');
 
-    const tdK = document.createElement('td'); tdK.className = 'k'; tdK.textContent = key;
+    const tdK = document.createElement('td'); tdK.className = 'k';
+    tdK.innerHTML = escHtml(key).replace(/\./g, '.<wbr>');   // wrap long keys at dots
     const tdV = document.createElement('td'); tdV.className = 'v';
     const inp = document.createElement('input');
+    inp.type = 'text';
     inp.className = 'vedit'; inp.value = val; inp.spellcheck = false;
     inp.disabled = removedKeys.has(key);
     inp.addEventListener('input', () => onValueEdit(key, inp.value));
@@ -1658,7 +1758,16 @@ function renderConfig() {
   $('cfgMeta').textContent = total
     ? (filter ? `${shown} / ${total} keys` : `${total} keys`)
     : '';
+  if (cfgLoaded) $('devKeys').textContent = `${Object.keys(originalCfg).length} config keys`;
   updatePending();
+  syncSshSwitch();
+}
+
+// The switch shows what the router has (originalCfg), not pending edits.
+function syncSshSwitch() {
+  const sw = $('sshSwitch');
+  sw.checked = originalCfg['sshd.status'] === 'enabled';
+  sw.disabled = !session || !cfgLoaded;
 }
 
 function onValueEdit(key, value) {
@@ -1876,25 +1985,32 @@ function renderQuickCmds() {
 // ============================================================
 // Wiring
 // ============================================================
-$('btnConnect').addEventListener('click', toggleConnection);
+$('btnConnect').addEventListener('click', connect);
+$('btnDisconnect').addEventListener('click', disconnect);
 
 $('pwToggle').addEventListener('click', () => {
   const p = $('password');
   const show = p.type === 'password';
   p.type = show ? 'text' : 'password';
-  $('pwToggle').textContent = show ? 'HIDE' : 'SHOW';
+  $('pwToggle').textContent = show ? 'Hide' : 'Show';
 });
 
-$('advToggle').addEventListener('click', () => {
-  const open = $('advancedRow').classList.toggle('open');
-  $('advToggle').textContent = (open ? '▾' : '▸') + ' Advanced';
-  LS.set('advanced', open ? '1' : '0');
+// Theme: follows the OS until the user picks one; the choice is remembered.
+function applyTheme(t) {
+  if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+  else delete document.documentElement.dataset.theme;
+}
+$('themeToggle').addEventListener('click', () => {
+  const dark = document.documentElement.dataset.theme
+    ? document.documentElement.dataset.theme === 'dark'
+    : matchMedia('(prefers-color-scheme: dark)').matches;
+  const next = dark ? 'light' : 'dark';
+  applyTheme(next);
+  LS.set('theme', next);
 });
-
 
 // Config editor wiring
 $('btnReload').addEventListener('click', reloadConfig);
-$('btnDump').addEventListener('click', reloadConfig);
 $('cfgSearch').addEventListener('input', renderConfig);
 $('btnAddKey').addEventListener('click', addKey);
 $('newVal').addEventListener('keydown', e => { if (e.key === 'Enter') addKey(); });
@@ -1914,8 +2030,15 @@ function setSsh(enabled) {
     toast(`SSH ${enabled ? 'enabled' : 'disabled'}`, 'ok');
   });
 }
-$('btnSshOn').addEventListener('click', () => setSsh(true));
-$('btnSshOff').addEventListener('click', () => setSsh(false));
+$('sshSwitch').addEventListener('change', async (e) => {
+  const want = e.target.checked;
+  if (!confirm(`${want ? 'Enable' : 'Disable'} SSH on the router?\n\nThis writes system.cfg and applies it.`)) {
+    syncSshSwitch();
+    return;
+  }
+  await setSsh(want);
+  syncSshSwitch();   // reflect what the router actually has, success or not
+});
 
 // Shell wiring
 renderQuickCmds();
@@ -1945,8 +2068,7 @@ $('btnCopyLog').addEventListener('click', () => {
 (() => {
   // Restore persisted settings
   $('username').value = LS.get('username', 'ui');
-  $('serviceUuid').value = LS.get('serviceUuid', UUID_SERVICE);
-  if (LS.get('advanced', '0') === '1') { $('advancedRow').classList.add('open'); $('advToggle').textContent = '▾ Advanced'; }
+  applyTheme(LS.get('theme', ''));
   updatePending();
 
   if (!navigator.bluetooth) {
