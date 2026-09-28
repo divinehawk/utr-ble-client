@@ -180,6 +180,12 @@ handshake and loads the config. Features:
   written in small chunks, read back and verified, and only then
   applied.
 - A **shell** with command history, quick-command chips, and copy.
+- A live **dashboard**: internet and uplink status, CPU, memory, uptime,
+  Wi-Fi networks, radios, VPN states, device details and a clients
+  table. It polls the router's `utrv2` status command every 10 seconds
+  (the command the official app polls) and `mca-dump` once a minute,
+  and warns in the config editor if the router's config changes after
+  you loaded it.
 - An SSH on/off switch that shows the router's current setting, and a
   log tab.
 - Light and dark themes (follows the OS; toggle in the sidebar).

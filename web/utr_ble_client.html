@@ -285,6 +285,95 @@
   }
   .apply-bar .cfg-meta { margin-left: 4px; }
 
+  /* ---------- Dashboard ---------- */
+  .dash-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .dash-bar h2 { font-size: 16px; font-weight: 600; }
+  .dash-bar .right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .inline-switch { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); margin: 0; font-weight: 400; }
+  .inline-switch .switch { margin-left: 0; }
+
+  .notice {
+    display: flex; align-items: center; gap: 10px; border-radius: var(--radius);
+    padding: 10px 14px; margin-bottom: 14px; border: 1px solid var(--border);
+    background: var(--blue-soft); color: var(--text);
+  }
+  .notice.warn { background: var(--amber-soft); border-color: var(--amber); }
+  .notice .btn-ghost { margin-left: auto; }
+
+  .stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    box-shadow: var(--shadow); padding: 14px 16px; min-width: 0;
+  }
+  .stat .label { font-size: 12px; color: var(--muted); }
+  .stat .value {
+    font-size: 22px; font-weight: 600; margin-top: 4px; letter-spacing: -0.01em;
+    display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .stat .sub { font-size: 12px; color: var(--text-2); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meter { height: 6px; border-radius: 3px; margin-top: 10px; background: var(--blue-soft); overflow: hidden; }
+  .meter > span { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--blue); transition: width .4s; }
+  .meter.warn { background: var(--amber-soft); } .meter.warn > span { background: var(--amber); }
+  .meter.crit { background: var(--red-soft); }   .meter.crit > span { background: var(--red); }
+
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .grid-2 > .card { margin-bottom: 16px; }
+
+  dl.kv { display: grid; grid-template-columns: max-content 1fr; gap: 8px 18px; padding: 16px 18px; }
+  dl.kv dt { color: var(--muted); }
+  dl.kv dd { color: var(--text); min-width: 0; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+
+  .rows { border-top: 1px solid var(--border); }
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 18px; }
+  .row + .row { border-top: 1px solid var(--border); }
+  .row .main-t { font-weight: 500; }
+  .row .sub-t { color: var(--muted); font-size: 12px; }
+  .row .end { margin-left: auto; text-align: right; color: var(--text-2); font-size: 12px; white-space: nowrap; }
+  .subhead { padding: 10px 18px 4px; font-size: 12px; font-weight: 600; color: var(--muted); border-top: 1px solid var(--border); }
+
+  /* State chips: colour plus a text label, never colour alone. */
+  .state {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500;
+    padding: 1px 8px; border-radius: 100px; background: var(--surface-2); color: var(--text-2);
+    border: 1px solid var(--border); white-space: nowrap;
+  }
+  .state::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+  .state.good { background: var(--green-soft); border-color: transparent; color: var(--green); }
+  .state.good::before { background: var(--green); }
+  .state.warn { background: var(--amber-soft); border-color: transparent; color: var(--amber); }
+  .state.warn::before { background: var(--amber); }
+  .state.bad { background: var(--red-soft); border-color: transparent; color: var(--red); }
+  .state.bad::before { background: var(--red); }
+
+  table.data { width: 100%; border-collapse: collapse; }
+  table.data th {
+    text-align: left; font-weight: 500; font-size: 12px; color: var(--muted);
+    padding: 9px 12px; background: var(--surface-2); border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  table.data td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; font-variant-numeric: tabular-nums; }
+  table.data tr:last-child td { border-bottom: none; }
+  table.data tbody tr:hover td { background: var(--hover); }
+  table.data .name { font-weight: 500; }
+  table.data .muted { color: var(--muted); font-size: 12px; }
+  table.data td.num, table.data th.num { text-align: right; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; }
+  .empty-row td { text-align: center; color: var(--muted); padding: 24px; }
+
+  /* Signal: bars + dBm + quality word; bar colour carries quality. */
+  .sig { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; }
+  .bars i { width: 3px; border-radius: 1px; background: var(--border-strong); }
+  .bars i:nth-child(1) { height: 4px; } .bars i:nth-child(2) { height: 7px; }
+  .bars i:nth-child(3) { height: 10px; } .bars i:nth-child(4) { height: 12px; }
+  .bars.good i.on { background: var(--green); }
+  .bars.fair i.on { background: var(--amber); }
+  .bars.poor i.on { background: var(--red); }
+
+  @media (max-width: 900px) {
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
   /* ---------- Terminal ---------- */
   .quick-cmds { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .chip {
@@ -381,7 +470,11 @@
     <svg class="i" viewBox="0 0 24 24"><rect x="4" y="13" width="16" height="6" rx="2"/><path d="M8 16h.01M12 16h.01"/><path d="M9 9.5a4.5 4.5 0 0 1 6 0M6.5 7a8 8 0 0 1 11 0"/></svg>
   </div>
   <nav class="nav section-hidden" id="tabs">
-    <button class="tab active" data-tab="config" aria-label="Settings">
+    <button class="tab active" data-tab="dashboard" aria-label="Dashboard">
+      <svg class="i" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="4" rx="1.5"/><rect x="13" y="10" width="7" height="10" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/></svg>
+      <span class="tip">Dashboard</span>
+    </button>
+    <button class="tab" data-tab="config" aria-label="Settings">
       <svg class="i" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
       <span class="tip">Settings</span>
     </button>
@@ -448,7 +541,7 @@
           </div>
           <div>
             <div class="name"><span id="devName">UTR</span><span class="chip-status">Online</span></div>
-            <div class="meta"><span id="devKeys">— keys</span></div>
+            <div class="meta" id="devMeta"></div>
           </div>
           <div class="btn-row">
             <button class="btn-danger btn-sm" id="btnDisconnect">Disconnect</button>
@@ -456,6 +549,90 @@
         </div>
       </div>
     </section>
+
+    <!-- DASHBOARD PANEL (fed by the router's `utrv2` status command) -->
+    <div class="tab-panel section-hidden" id="panel-dashboard">
+      <div class="dash-bar">
+        <h2>Overview</h2>
+        <span class="cfg-meta" id="dashUpdated">Waiting for status…</span>
+        <div class="right">
+          <label class="inline-switch">
+            <span class="switch"><input type="checkbox" id="autoRefresh" checked /><span class="track"></span></span>
+            Auto-refresh
+          </label>
+          <button class="btn-secondary btn-sm" id="btnRefresh">Refresh</button>
+        </div>
+      </div>
+
+      <div class="notice warn section-hidden" id="dashNotice"></div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="label">Internet</div>
+          <div class="value" id="stInternet">—</div>
+          <div class="sub" id="stInternetSub">&nbsp;</div>
+        </div>
+        <div class="stat">
+          <div class="label">Clients</div>
+          <div class="value" id="stClients">—</div>
+          <div class="sub" id="stClientsSub">&nbsp;</div>
+        </div>
+        <div class="stat">
+          <div class="label">CPU</div>
+          <div class="value" id="stCpu">—</div>
+          <div class="meter" id="mtCpu"><span></span></div>
+        </div>
+        <div class="stat">
+          <div class="label">Memory</div>
+          <div class="value" id="stMem">—</div>
+          <div class="meter" id="mtMem"><span></span></div>
+        </div>
+        <div class="stat">
+          <div class="label">Uptime</div>
+          <div class="value" id="stUptime">—</div>
+          <div class="sub" id="stUptimeSub">&nbsp;</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <section class="card">
+          <div class="card-header">Internet</div>
+          <dl class="kv" id="wanKv"><dt>Status</dt><dd>—</dd></dl>
+          <div class="subhead">Other uplinks</div>
+          <div id="wanOthers"></div>
+        </section>
+        <section class="card">
+          <div class="card-header">Wi-Fi and services</div>
+          <div id="wifiList"></div>
+          <div class="subhead">Services</div>
+          <div id="serviceList"></div>
+        </section>
+      </div>
+
+      <div class="grid-2">
+        <section class="card">
+          <div class="card-header">Radios</div>
+          <div id="radioList"></div>
+        </section>
+        <section class="card">
+          <div class="card-header">Device <span class="cfg-meta" id="detailsNote"></span></div>
+          <dl class="kv" id="deviceKv"><dt>Details</dt><dd>—</dd></dl>
+        </section>
+      </div>
+
+      <section class="card">
+        <div class="card-header">Clients <span class="cfg-meta" id="clientsCount"></span></div>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr>
+              <th>Name</th><th>IP address</th><th>Network</th><th>Signal</th>
+              <th class="num">Rate (down / up)</th><th class="num">Data (down / up)</th><th class="num">Connected</th>
+            </tr></thead>
+            <tbody id="clientsBody"><tr class="empty-row"><td colspan="7">No data yet</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
 
     <!-- SETTINGS PANEL -->
     <div class="tab-panel section-hidden" id="panel-config">
@@ -485,6 +662,10 @@
           </div>
         </div>
         <div class="card-body">
+          <div class="notice warn section-hidden" id="cfgStale">
+            The router's configuration changed after it was loaded here.
+            <button class="btn-ghost" id="btnStaleReload">Reload</button>
+          </div>
           <div class="cfg-toolbar">
             <div class="cfg-search">
               <svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
@@ -1241,7 +1422,7 @@ class UtrSession {
     });
   }
 
-  async _send(protocol, payload) {
+  async _send(protocol, payload, quiet = false) {
     if (this.closed) throw new Error('Session closed');
     const frame = btlev2Encode(this.seq, protocol, payload, this.txKey, this.txNonce);
     if (frame.length > MAX_WRITE) {
@@ -1249,7 +1430,7 @@ class UtrSession {
     }
     this.seq = (this.seq + 1) & 0xFFFF;
     this.txNonce++;
-    log(`→ sending ${frame.length}B (proto=0x${protocol.toString(16)})`, 'dim');
+    if (!quiet) log(`→ sending ${frame.length}B (proto=0x${protocol.toString(16)})`, 'dim');
     // Python uses write-with-response on the write characteristic (9280f26c).
     const buf = frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength);
     await this._writeChar.writeValueWithResponse(buf);
@@ -1362,10 +1543,11 @@ class UtrSession {
     }
   }
 
-  shell(cmd, timeout = 30000) {
+  // quiet: skip per-frame logging (used by the periodic status poll).
+  shell(cmd, timeout = 30000, { quiet = false } = {}) {
     return this._exclusive(async () => {
       const guid = this._newGuid();
-      await this._send(PROTO_BINARY, packCmdMsg(guid, cmd));
+      await this._send(PROTO_BINARY, packCmdMsg(guid, cmd), quiet);
       const { body } = await this._recvResponse(guid, timeout);
       return new TextDecoder('utf-8').decode(body);
     });
@@ -1510,35 +1692,44 @@ function setConnected(yes, name) {
   $('deviceSummary').classList.toggle('section-hidden', !yes);
   $('connHeader').textContent = yes ? 'Device' : 'Connect to a router';
   if (yes) $('devName').textContent = name || 'UTR';
-  else $('devKeys').textContent = '— keys';
+  else { stopPolling(); lastStatus = null; resetDashboard(); }
+  updateDeviceMeta();
   $('btnConnect').disabled = false;
   updatePending();
   syncSshSwitch();
 
-  const cfgTab   = document.querySelector('.tab[data-tab="config"]');
-  const shellTab = document.querySelector('.tab[data-tab="shell"]');
+  // Tabs that need a live session; Log stays available after a disconnect.
+  const sessionTabs = ['dashboard', 'config', 'shell']
+    .map(t => document.querySelector(`.tab[data-tab="${t}"]`));
 
   if (yes) {
     $('tabs').classList.remove('section-hidden');
-    cfgTab.classList.remove('section-hidden');
-    shellTab.classList.remove('section-hidden');
-    showTab('config');
+    sessionTabs.forEach(t => t.classList.remove('section-hidden'));
+    showTab('dashboard');
   } else {
     // Never connected → leave the whole tab area hidden.
     if ($('tabs').classList.contains('section-hidden')) return;
     // Otherwise keep the Log tab available so errors remain readable.
-    cfgTab.classList.add('section-hidden');
-    shellTab.classList.add('section-hidden');
+    sessionTabs.forEach(t => t.classList.add('section-hidden'));
     showTab('log');
   }
 }
 
+// "Firmware 6.6.x · 612 config keys": version comes from utrv2, the count from the loaded config.
+function updateDeviceMeta() {
+  const parts = [];
+  if (lastStatus?.version) parts.push(`Firmware ${lastStatus.version}`);
+  if (cfgLoaded) parts.push(`${Object.keys(originalCfg).length} config keys`);
+  $('devMeta').textContent = parts.join(' · ');
+  if (lastStatus?.model_display) $('devName').textContent = lastStatus.model_display;
+}
+
 // ---------- Tabs ----------
-let activeTab = 'config';
+let activeTab = 'dashboard';
 function showTab(name) {
   activeTab = name;
   document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-  ['config','shell','log'].forEach(p => $('panel-'+p).classList.toggle('section-hidden', p !== name));
+  ['dashboard','config','shell','log'].forEach(p => $('panel-'+p).classList.toggle('section-hidden', p !== name));
   if (name === 'log') { logUnseen = 0; $('logBadge').classList.add('section-hidden'); }
   if (name === 'shell') setTimeout(() => $('shellCmd').focus(), 30);
 }
@@ -1597,6 +1788,7 @@ async function establishSession(device, svcUuid) {
   toast('Connected · session ready', 'ok');
   setBusyLabel('Reading config…');
   await autoLoadConfig();
+  startPolling();
 }
 
 async function connect() {
@@ -1674,6 +1866,376 @@ async function run(label, fn) {
     setBusy(false);
     if (session) setConnDot('connected');
   }
+}
+
+// ============================================================
+// Dashboard: polls the router's `utrv2` status command (the same command
+// the official app runs periodically) and renders it.
+// ============================================================
+const POLL_MS = 10000;
+let pollTimer = null;
+let pollInFlight = false;
+let pollFailing = false;
+let lastStatus = null;
+let cfgMd5Base = null;   // router's cfg_md5 as of the last config load/apply
+
+// `mca-dump` (the standard UniFi device dump) adds hardware and radio detail
+// that utrv2 lacks. It's ~3x larger, so it runs on connect, then once a minute.
+const DETAILS_MS = 60000;
+let lastDetails = null;
+let detailsAt = 0;
+let detailsUnavailable = false;
+
+function startPolling() {
+  stopPolling();
+  pollOnce();
+  pollTimer = setInterval(pollOnce, POLL_MS);
+}
+function stopPolling() {
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+async function pollOnce(force = false) {
+  if (!session || pollInFlight) return;
+  // Stay out of the way of user actions (config writes, shell commands).
+  if (!force && (busy || document.hidden || !$('autoRefresh').checked)) return;
+  pollInFlight = true;
+  try {
+    const out = await session.shell('utrv2', 15000, { quiet: true });
+    const data = JSON.parse(out);
+    lastStatus = data;
+    renderDashboard(data);
+    checkCfgMd5(data);
+    updateDeviceMeta();
+    if (pollFailing) log('Status updates resumed.', 'ok');
+    pollFailing = false;
+    if (force || Date.now() - detailsAt > DETAILS_MS) await pollDetails();
+  } catch (e) {
+    if (!session) return;   // disconnected mid-poll; nothing to report
+    if (!pollFailing) log(`Status update failed: ${e.message}`, 'warn');
+    pollFailing = true;
+    showDashNotice(`Couldn't read router status: ${e.message}`);
+  } finally {
+    pollInFlight = false;
+  }
+}
+
+async function pollDetails() {
+  if (detailsUnavailable || !session) return;
+  detailsAt = Date.now();   // also on failure, so a flaky link isn't hammered
+  try {
+    const out = await session.shell('mca-dump', 20000, { quiet: true });
+    lastDetails = JSON.parse(out);
+    renderDetails(lastDetails);
+  } catch (e) {
+    if (!session) return;
+    if (e instanceof SyntaxError) {
+      // Missing command or non-JSON output won't fix itself; stop asking.
+      detailsUnavailable = true;
+      $('detailsNote').textContent = '· details unavailable';
+      log('mca-dump did not return JSON; device details disabled for this session.', 'dim');
+    } else {
+      log(`Device details update failed: ${e.message}`, 'warn');
+    }
+  }
+}
+
+// ---------- cfg_md5: notice when the router's config changes under us ----------
+function resetCfgBaseline() {
+  cfgMd5Base = null;
+  $('cfgStale').classList.add('section-hidden');
+}
+function checkCfgMd5(d) {
+  if (!cfgLoaded || !d.cfg_md5 || d.apply_in_progress) return;
+  if (cfgMd5Base === null) { cfgMd5Base = d.cfg_md5; return; }
+  const stale = d.cfg_md5 !== cfgMd5Base;
+  if (stale && $('cfgStale').classList.contains('section-hidden')) {
+    log('The router configuration changed after it was loaded. Reload to see it.', 'warn');
+  }
+  $('cfgStale').classList.toggle('section-hidden', !stale);
+}
+
+// ---------- formatting ----------
+function h(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined && text !== null) e.textContent = text;
+  return e;
+}
+function fmtBytes(n) {
+  if (typeof n !== 'number' || !isFinite(n)) return '—';
+  const u = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let i = 0;
+  while (n >= 1000 && i < u.length - 1) { n /= 1000; i++; }
+  return `${n >= 100 || i === 0 ? Math.round(n) : n.toFixed(1)} ${u[i]}`;
+}
+function fmtRate(kbps) {
+  if (typeof kbps !== 'number' || kbps <= 0) return '—';
+  return kbps >= 1000 ? `${Math.round(kbps / 1000)}` : `${(kbps / 1000).toFixed(1)}`;
+}
+function fmtDuration(sec) {
+  sec = Number(sec);
+  if (!isFinite(sec) || sec < 0) return '—';
+  const d = Math.floor(sec / 86400), hr = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  if (d) return `${d}d ${hr}h`;
+  if (hr) return `${hr}h ${m}m`;
+  return `${m}m`;
+}
+function band(channel) {
+  if (!channel) return '';
+  return channel <= 14 ? '2.4 GHz' : '5 GHz';
+}
+function stateChip(label, kind = '') {
+  return h('span', `state ${kind}`, label);
+}
+function titleCase(s) {
+  s = String(s || '').toLowerCase();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const SIGNAL_WORD = { good: 'Good', fair: 'Fair', poor: 'Weak' };
+function signalEl(dbm) {
+  if (typeof dbm !== 'number') return h('span', 'muted', '—');
+  const q = dbm >= -60 ? 'good' : dbm >= -70 ? 'fair' : 'poor';
+  const n = dbm >= -55 ? 4 : dbm >= -65 ? 3 : dbm >= -75 ? 2 : 1;
+  const wrap = h('span', 'sig');
+  const bars = h('span', `bars ${q}`);
+  for (let i = 0; i < 4; i++) bars.append(h('i', i < n ? 'on' : ''));
+  wrap.append(bars, h('span', null, `${dbm} dBm`), h('span', 'muted', SIGNAL_WORD[q]));
+  return wrap;
+}
+
+function uplinkKind(w) {
+  const i = w.interface || '';
+  if ('essid' in w || i.startsWith('ath')) return 'Wi-Fi uplink';
+  if (i.startsWith('usb')) return 'USB tethering';
+  if (i.startsWith('eth')) return 'Ethernet';
+  return 'Uplink';
+}
+
+// Memory sits at 70%+ on these routers normally, so it gets higher thresholds than CPU.
+function setMeter(id, pct, warnAt = 70, critAt = 90) {
+  const m = $(id);
+  const v = Math.max(0, Math.min(100, Number(pct) || 0));
+  m.classList.toggle('warn', v >= warnAt && v < critAt);
+  m.classList.toggle('crit', v >= critAt);
+  m.firstElementChild.style.width = `${v}%`;
+}
+
+function showDashNotice(text) {
+  const n = $('dashNotice');
+  n.textContent = text || '';
+  n.classList.toggle('section-hidden', !text);
+}
+
+// ---------- render ----------
+const RADIO_BAND = { ng: '2.4 GHz', na: '5 GHz', '6e': '6 GHz' };
+
+function renderRadios() {
+  const m = lastDetails;
+  if (m && Array.isArray(m.radio_table) && m.radio_table.length) {
+    const vaps = Array.isArray(m.vap_table) ? m.vap_table : [];
+    $('radioList').replaceChildren(...m.radio_table.map(r => {
+      const own = vaps.filter(v => v.radio_name === r.name);
+      const v = own.find(x => x.up) || own[0] || {};
+      const clients = own.reduce((n, x) => n + (x.num_sta || 0), 0);
+      const st = r.athstats || {};
+      const row = h('div', 'row');
+      const t = h('div');
+      t.append(h('div', 'main-t', RADIO_BAND[r.radio] || band(v.channel) || r.name),
+               h('div', 'sub-t', [v.channel && `Channel ${v.channel}`, v.bw && `${v.bw} MHz`,
+                                 `${clients} client${clients === 1 ? '' : 's'}`].filter(Boolean).join(' · ')));
+      const end = h('div', 'end');
+      const facts = [typeof st.cu_total === 'number' && `Utilization ${st.cu_total}%`,
+                     typeof st.noise_floor === 'number' && `Noise ${st.noise_floor} dBm`].filter(Boolean).join(' · ');
+      end.append(h('div', null, facts || '—'));
+      // satisfaction is -1 when the radio has no clients to score.
+      if (typeof st.satisfaction === 'number' && st.satisfaction >= 0) {
+        const q = st.satisfaction >= 80 ? 'good' : st.satisfaction >= 50 ? 'warn' : 'bad';
+        const chip = stateChip(`Experience ${st.satisfaction}%`, q);
+        chip.style.marginTop = '4px';
+        end.append(chip);
+      }
+      row.append(t, end);
+      return row;
+    }));
+    return;
+  }
+  // Fallback: utrv2's lan_table (one row per band/channel/width).
+  const radios = new Map();
+  for (const l of (Array.isArray(lastStatus?.lan_table) ? lastStatus.lan_table : [])) {
+    if (!l.channel) continue;
+    const key = `${band(l.channel)}|${l.channel}|${l.bw}`;
+    if (!radios.has(key)) radios.set(key, l);
+  }
+  $('radioList').replaceChildren(...(radios.size ? [...radios.values()].map(l => {
+    const r = h('div', 'row');
+    r.append(h('div', 'main-t', band(l.channel)), h('div', 'end', `Channel ${l.channel}${l.bw ? ` · ${l.bw} MHz` : ''}`));
+    return r;
+  }) : [h('div', 'row sub-t', 'No radio details')]));
+}
+
+function renderDetails(m) {
+  const kv = [];
+  const add = (k, v) => { if (v !== undefined && v !== null && v !== '') kv.push([k, v]); };
+  add('Hostname', m.hostname);
+  add('Model', m.model_display || m.model);
+  add('Serial', m.serial);
+  add('MAC', m.mac);
+  add('Firmware', m.version);
+  add('Kernel', [m.kernel_version, m.architecture].filter(Boolean).join(' · '));
+  const ss = m.sys_stats || {};
+  if (ss.loadavg_1 !== undefined) add('Load average', [ss.loadavg_1, ss.loadavg_5, ss.loadavg_15].join('  '));
+  if (ss.mem_total) add('Memory', `${fmtBytes(ss.mem_used)} of ${fmtBytes(ss.mem_total)}`);
+  add('Gateway', m.gateway_ip);
+  $('deviceKv').replaceChildren(...kv.flatMap(([k, v]) => [h('dt', null, k), h('dd', null, v)]));
+  const t = new Date(detailsAt).toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit' });
+  $('detailsNote').textContent = `· from mca-dump at ${t}`;
+  renderRadios();
+}
+
+function resetDashboard() {
+  lastDetails = null; detailsAt = 0; detailsUnavailable = false;
+  $('deviceKv').replaceChildren(h('dt', null, 'Details'), h('dd', null, '—'));
+  $('detailsNote').textContent = '';
+  ['stInternet', 'stClients', 'stCpu', 'stMem', 'stUptime'].forEach(id => $(id).textContent = '—');
+  ['stInternetSub', 'stClientsSub', 'stUptimeSub'].forEach(id => $(id).innerHTML = '&nbsp;');
+  setMeter('mtCpu', 0); setMeter('mtMem', 0);
+  $('wanKv').replaceChildren(h('dt', null, 'Status'), h('dd', null, '—'));
+  ['wanOthers', 'wifiList', 'radioList', 'serviceList'].forEach(id => $(id).replaceChildren());
+  const row = h('tr', 'empty-row'); const td = h('td', null, 'No data yet'); td.colSpan = 7; row.append(td);
+  $('clientsBody').replaceChildren(row);
+  $('clientsCount').textContent = '';
+  $('dashUpdated').textContent = 'Waiting for status…';
+  showDashNotice('');
+}
+
+function renderDashboard(d) {
+  $('dashUpdated').textContent = `Updated ${new Date().toLocaleTimeString([], { hour12: false })}`;
+  showDashNotice(d.apply_in_progress ? 'The router is applying configuration changes.' : '');
+
+  const wans = Array.isArray(d.wan_table) ? d.wan_table : [];
+  const active = wans.find(w => w.is_default_route) || wans.find(w => w.interface === d.wan_if) || null;
+  const online = !!d.internet;
+
+  // Stat tiles
+  $('stInternet').replaceChildren(h('span', `status-dot ${online ? 'connected' : 'error'}`), document.createTextNode(online ? 'Online' : 'Offline'));
+  $('stInternetSub').textContent = active
+    ? [uplinkKind(active), active.essid].filter(Boolean).join(' · ')
+    : 'No active uplink';
+
+  const bc = d.broadcast_clients || {};
+  let c2 = 0, c5 = 0;
+  for (const net of Object.values(bc)) { c2 += net?.clients_2g || 0; c5 += net?.clients_5g || 0; }
+  $('stClients').textContent = d.client_count ?? (Array.isArray(d.clients) ? d.clients.length : '—');
+  $('stClientsSub').textContent = `5 GHz ${c5} · 2.4 GHz ${c2}`;
+
+  const st = d.system_stats || {};
+  const cpu = parseFloat(st.cpu), mem = parseFloat(st.mem);
+  $('stCpu').textContent = isFinite(cpu) ? `${cpu}%` : '—';
+  $('stMem').textContent = isFinite(mem) ? `${mem}%` : '—';
+  setMeter('mtCpu', cpu); setMeter('mtMem', mem, 85, 95);
+  $('stUptime').textContent = fmtDuration(st.uptime);
+  $('stUptimeSub').textContent = d.version ? `Firmware ${d.version}` : ' ';
+
+  // Internet card
+  const kv = [];
+  const add = (k, v) => { if (v !== undefined && v !== null && v !== '') kv.push([k, v]); };
+  if (active) {
+    add('Status', stateChip(active.internet ? 'Connected' : titleCase(active.status || 'Unknown'), active.internet ? 'good' : 'warn'));
+    add('Uplink', `${uplinkKind(active)} (${active.interface})`);
+    add('Network', active.essid);
+    if (typeof active.rssi === 'number') add('Signal', signalEl(active.rssi));
+    if (active.channel) add('Channel', `${active.channel} (${band(active.channel)}${active.bw ? `, ${active.bw} MHz` : ''})`);
+    add('WAN IP', active.ip);
+    add('ISP', active.isp_info?.isp || active.isp_info?.organization);
+    add('Gateway', active.arp_gateway ? 'Reachable' : 'Not reachable');
+  } else {
+    add('Status', stateChip('No uplink', 'bad'));
+  }
+  add('Data', `↓ ${fmtBytes(d.wan_rx_bytes)}  ↑ ${fmtBytes(d.wan_tx_bytes)}`);
+  add('LAN IP', d.lan_ip);
+  $('wanKv').replaceChildren(...kv.flatMap(([k, v]) => {
+    const dd = h('dd');
+    if (v instanceof Node) dd.append(v); else dd.textContent = v;
+    return [h('dt', null, k), dd];
+  }));
+
+  const others = wans.filter(w => w !== active);
+  $('wanOthers').replaceChildren(...(others.length ? others.map(w => {
+    const r = h('div', 'row');
+    const t = h('div');
+    t.append(h('div', 'main-t', uplinkKind(w)), h('div', 'sub-t', [w.interface, w.essid || w.hostname].filter(Boolean).join(' · ')));
+    const up = w.status === 'connected';
+    const end = h('div', 'end'); end.append(stateChip(up ? 'Connected' : 'Disconnected', up ? 'good' : ''));
+    r.append(t, end);
+    return r;
+  }) : [h('div', 'row sub-t', 'None')]));
+
+  // Wi-Fi networks
+  const nets = Object.entries(bc);
+  $('wifiList').replaceChildren(...(nets.length ? nets.map(([role, net]) => {
+    const r = h('div', 'row');
+    const t = h('div');
+    t.append(h('div', 'main-t', net?.ssid || '(hidden)'), h('div', 'sub-t', `${titleCase(role)} network`));
+    const total = net?.total ?? ((net?.clients_2g || 0) + (net?.clients_5g || 0));
+    const end = h('div', 'end');
+    end.append(h('div', null, `${total} client${total === 1 ? '' : 's'}`),
+               h('div', 'sub-t', `5 GHz ${net?.clients_5g || 0} · 2.4 GHz ${net?.clients_2g || 0}`));
+    r.append(t, end);
+    return r;
+  }) : [h('div', 'row sub-t', 'No networks reported')]));
+
+  renderRadios();
+
+  // Services
+  const svc = [];
+  const vpn = (name, o) => {
+    if (!o) return;
+    const s = String(o.state || (o.connected ? 'connected' : 'disconnected'));
+    const up = /^connected$/i.test(s) || o.connected === true;
+    svc.push([name, stateChip(titleCase(s), up ? 'good' : '')]);
+  };
+  vpn('OpenVPN', d.openvpn);
+  vpn('WireGuard', d.wireguard);
+  vpn('Teleport', d.teleport);
+  if ('ntp_synced' in d) svc.push(['Time sync', stateChip(d.ntp_synced ? 'Synced' : 'Not synced', d.ntp_synced ? 'good' : 'warn')]);
+  if (d.upgrade_state) svc.push(['Firmware update', stateChip(titleCase(d.upgrade_state), d.upgrade_state === 'idle' ? '' : 'warn')]);
+  $('serviceList').replaceChildren(...svc.map(([name, chip]) => {
+    const r = h('div', 'row');
+    const end = h('div', 'end'); end.append(chip);
+    r.append(h('div', 'main-t', name), end);
+    return r;
+  }));
+
+  // Clients
+  const clients = (Array.isArray(d.clients) ? d.clients : [])
+    .slice().sort((a, b) =>
+      (!a.hostname - !b.hostname) ||   // named clients first
+      (a.hostname || a.mac || '').localeCompare(b.hostname || b.mac || '', undefined, { sensitivity: 'base' }));
+  $('clientsCount').textContent = clients.length ? `· ${clients.length}` : '';
+  if (!clients.length) {
+    const row = h('tr', 'empty-row'); const td = h('td', null, 'No clients connected'); td.colSpan = 7; row.append(td);
+    $('clientsBody').replaceChildren(row);
+    return;
+  }
+  $('clientsBody').replaceChildren(...clients.map(c => {
+    const w = c.wifi || null;
+    const tr = h('tr');
+    const name = h('td');
+    name.append(h('div', 'name', c.hostname || c.mac || 'Unknown'), h('div', 'muted', c.hostname ? c.mac : ''));
+    const net = h('td');
+    if (w) net.append(h('div', null, w.essid || '—'), h('div', 'muted', band(w.channel)));
+    else net.textContent = 'Wired';
+    const sig = h('td'); sig.append(signalEl(w?.signal));
+    // Router's view: tx = to the client (its download), rx = from the client (its upload).
+    const rate = h('td', 'num', w ? `${fmtRate(w.tx_rate)} / ${fmtRate(w.rx_rate)} Mbps` : '—');
+    const data = h('td', 'num', w ? `${fmtBytes(w.tx_bytes)} / ${fmtBytes(w.rx_bytes)}` : '—');
+    const up = h('td', 'num', w ? fmtDuration(w.uptime) : '—');
+    tr.append(name, h('td', null, c.ip || '—'), net, sig, rate, data, up);
+    return tr;
+  }));
 }
 
 // ============================================================
@@ -1758,7 +2320,7 @@ function renderConfig() {
   $('cfgMeta').textContent = total
     ? (filter ? `${shown} / ${total} keys` : `${total} keys`)
     : '';
-  if (cfgLoaded) $('devKeys').textContent = `${Object.keys(originalCfg).length} config keys`;
+  updateDeviceMeta();
   updatePending();
   syncSshSwitch();
 }
@@ -1812,6 +2374,7 @@ function buildFinalCfg() {
 }
 
 function loadCfgIntoEditor(cfg) {
+  resetCfgBaseline();
   originalCfg = { ...cfg };
   cfgLoaded = true;
   edits.clear(); addedKeys.clear(); removedKeys.clear();
@@ -1821,6 +2384,7 @@ function loadCfgIntoEditor(cfg) {
 // Swap in a fresh device config but keep the user's pending edits on top of it.
 // Used on reload, reconnect and after SSH toggles so staged work isn't lost.
 function rebaseConfig(cfg) {
+  resetCfgBaseline();
   originalCfg = { ...cfg };
   cfgLoaded = true;
   for (const k of [...addedKeys]) {
@@ -2009,8 +2573,21 @@ $('themeToggle').addEventListener('click', () => {
   LS.set('theme', next);
 });
 
+// Dashboard wiring
+$('btnRefresh').addEventListener('click', async () => {
+  $('btnRefresh').disabled = true;
+  try { await pollOnce(true); } finally { $('btnRefresh').disabled = false; }
+});
+$('autoRefresh').addEventListener('change', () => {
+  LS.set('autoRefresh', $('autoRefresh').checked ? '1' : '0');
+  if ($('autoRefresh').checked) pollOnce();
+});
+// Browsers throttle timers in background tabs; catch up when the tab is visible again.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollOnce(); });
+
 // Config editor wiring
 $('btnReload').addEventListener('click', reloadConfig);
+$('btnStaleReload').addEventListener('click', reloadConfig);
 $('cfgSearch').addEventListener('input', renderConfig);
 $('btnAddKey').addEventListener('click', addKey);
 $('newVal').addEventListener('keydown', e => { if (e.key === 'Enter') addKey(); });
@@ -2069,6 +2646,7 @@ $('btnCopyLog').addEventListener('click', () => {
   // Restore persisted settings
   $('username').value = LS.get('username', 'ui');
   applyTheme(LS.get('theme', ''));
+  $('autoRefresh').checked = LS.get('autoRefresh', '1') === '1';
   updatePending();
 
   if (!navigator.bluetooth) {

@@ -217,6 +217,34 @@ Observed UTR advertisement (bleak scan):
     and cdnjs SRI hashes noted in the file), so no internet is needed to
     connect.
 
+### Status commands
+
+Both run over the normal shell channel and print one JSON object.
+
+-   **`utrv2`**: the status command the official app polls
+    periodically. About 4-5 KB. Includes `internet`, `wan_table`
+    (uplinks; the active one has `is_default_route`), `clients` (with
+    hostname, IP and a `wifi` block: `signal` in dBm, `tx_rate` /
+    `rx_rate` in kbps, byte counters, `uptime`), `broadcast_clients`
+    (per-SSID counts), `lan_table` (radio channel/width),
+    `system_stats` (`cpu`, `mem` as percent strings, `uptime` in
+    seconds), `openvpn` / `wireguard` / `teleport` states,
+    `ntp_synced`, `upgrade_state`, `apply_in_progress`, `version`,
+    `model_display` and `cfg_md5`. Client counters are from the
+    router's side: `tx_*` is traffic to the client.
+-   **`mca-dump`**: the standard UniFi device dump. About 12 KB. Adds
+    `serial`, `mac`, `kernel_version`, `architecture`, `sys_stats`
+    (load averages, `mem_used` / `mem_total` in bytes), `gateway_ip`,
+    `radio_table` (`radio` is `ng` for 2.4 GHz and `na` for 5 GHz;
+    `athstats.noise_floor`, `athstats.cu_total` channel utilization,
+    `athstats.satisfaction`, which is -1 when there is nothing to score)
+    and `vap_table` (per-SSID channel, width, `num_sta`, `sta_table`).
+    Client hostnames are only in `utrv2`.
+
+The web client polls `utrv2` every 10 s and `mca-dump` every 60 s, both
+quietly (no per-frame log lines) and never while a user action is
+running.
+
 ### Protocol details that must match the Python reference
 
 These are the points where an incorrect browser port silently fails:
