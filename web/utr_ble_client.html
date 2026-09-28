@@ -1,0 +1,1968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UTR BLE Client</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0a0c0f;
+    --bg-2: #0d1013;
+    --surface: #111418;
+    --surface-2: #151a1f;
+    --border: #1e2329;
+    --border-bright: #2d3540;
+    --text: #c8d0db;
+    --text-dim: #5a6474;
+    --text-dimmer: #3d4551;
+    --accent: #00d4aa;
+    --accent-dim: #00a882;
+    --accent-glow: rgba(0,212,170,0.12);
+    --warn: #f5a623;
+    --error: #e05252;
+    --ok: #00d4aa;
+    --info: #4a9eff;
+    --dirty: #f5a623;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(0,212,170,0.05), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 80px;
+  }
+
+  .wrap { width: 100%; max-width: 860px; }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  header .brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  header h1 {
+    font-family: var(--mono);
+    font-size: 18px; font-weight: 600;
+    color: var(--accent); letter-spacing: 0.04em;
+  }
+  header .tagline { font-size: 12px; color: var(--text-dim); font-family: var(--mono); }
+
+  /* Connection pill */
+  .conn-pill {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 100px; padding: 6px 14px;
+    font-family: var(--mono); font-size: 12px;
+    white-space: nowrap;
+  }
+  .conn-pill .who { color: var(--text); max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text-dimmer);
+    transition: background 0.3s, box-shadow 0.3s; flex-shrink: 0;
+  }
+  .status-dot.connected { background: var(--ok); box-shadow: 0 0 8px var(--ok); animation: pulse 2.4s infinite; }
+  .status-dot.working   { background: var(--warn); box-shadow: 0 0 8px var(--warn); animation: pulse 1s infinite; }
+  .status-dot.error     { background: var(--error); box-shadow: 0 0 8px var(--error); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .compat-warning {
+    background: rgba(245,166,35,0.08);
+    border: 1px solid rgba(245,166,35,0.3);
+    border-radius: 8px; padding: 12px 16px; margin-bottom: 18px;
+    font-size: 12px; color: var(--warn); display: none; font-family: var(--mono);
+  }
+  .compat-warning.visible { display: block; }
+
+  /* ---------- Cards ---------- */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; margin-bottom: 16px; overflow: hidden;
+  }
+  .card-header {
+    padding: 11px 16px; background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.1em; color: var(--text-dim); text-transform: uppercase;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-body { padding: 16px; }
+
+  /* ---------- Forms ---------- */
+  .field-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .field-group { flex: 1; min-width: 150px; }
+  label {
+    display: block; font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.08em; color: var(--text-dim);
+    text-transform: uppercase; margin-bottom: 6px;
+  }
+  input[type="text"], input[type="password"] {
+    width: 100%; background: var(--bg); border: 1px solid var(--border-bright);
+    border-radius: 6px; color: var(--text); font-family: var(--mono);
+    font-size: 13px; padding: 9px 11px; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+  .pw-wrap { position: relative; }
+  .pw-wrap input { padding-right: 44px; }
+  .pw-toggle {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--text-dim); cursor: pointer;
+    font-family: var(--mono); font-size: 10px; padding: 4px 6px; letter-spacing: 0.05em;
+  }
+  .pw-toggle:hover { color: var(--accent); }
+
+  input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .advanced-toggle {
+    background: none; border: none; color: var(--text-dim);
+    font-family: var(--mono); font-size: 11px; cursor: pointer;
+    padding: 4px 0; margin-bottom: 4px; letter-spacing: 0.04em;
+  }
+  .advanced-toggle:hover { color: var(--accent); }
+  #advancedRow { display: none; }
+  #advancedRow.open { display: flex; }
+
+  /* ---------- Buttons ---------- */
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button {
+    font-family: var(--mono); font-size: 12px; font-weight: 500;
+    letter-spacing: 0.03em; padding: 9px 16px; border-radius: 6px;
+    border: 1px solid transparent; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  button:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #001510; border-color: var(--accent); font-weight: 600; }
+  .btn-primary:hover:not(:disabled) { background: #00efc0; border-color: #00efc0; box-shadow: 0 0 16px var(--accent-glow); }
+  .btn-secondary { background: transparent; color: var(--text); border-color: var(--border-bright); }
+  .btn-secondary:hover:not(:disabled) { border-color: var(--accent-dim); color: var(--accent); }
+  .btn-danger { background: transparent; color: var(--error); border-color: rgba(224,82,82,0.4); }
+  .btn-danger:hover:not(:disabled) { background: rgba(224,82,82,0.08); border-color: var(--error); }
+  .btn-sm { padding: 5px 10px; font-size: 11px; }
+  .btn-ghost { background: none; border: none; color: var(--text-dim); padding: 5px 8px; }
+  .btn-ghost:hover:not(:disabled) { color: var(--accent); }
+
+  /* ---------- Tabs ---------- */
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 16px;
+    border-bottom: 1px solid var(--border); padding-bottom: 0;
+  }
+  .tab {
+    background: none; border: none; border-bottom: 2px solid transparent;
+    color: var(--text-dim); font-family: var(--mono); font-size: 12px;
+    letter-spacing: 0.06em; text-transform: uppercase; padding: 10px 16px;
+    cursor: pointer; transition: all 0.15s; position: relative;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .badge {
+    display: inline-block; min-width: 16px; padding: 1px 5px; margin-left: 6px;
+    background: var(--dirty); color: #1a1200; border-radius: 8px;
+    font-size: 10px; font-weight: 600; vertical-align: middle;
+    text-align: center; letter-spacing: 0;
+  }
+  /* Panel visibility is controlled entirely by the .section-hidden class. */
+  .section-hidden { display: none !important; }
+
+  /* ---------- Config editor ---------- */
+  .cfg-toolbar {
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .cfg-search {
+    flex: 1; min-width: 160px; position: relative;
+  }
+  .cfg-search input { padding-left: 30px; }
+  .cfg-search .icon {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: var(--text-dim); font-size: 12px; pointer-events: none;
+  }
+  .cfg-meta { font-family: var(--mono); font-size: 11px; color: var(--text-dim); margin-left: auto; }
+
+  .cfg-table-wrap { max-height: 460px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+  table.cfg { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  table.cfg thead th {
+    position: sticky; top: 0; z-index: 1; text-align: left;
+    padding: 8px 10px; background: var(--surface-2);
+    border-bottom: 1px solid var(--border-bright); color: var(--text-dim);
+    font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  table.cfg tbody td { padding: 4px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  table.cfg tbody tr:hover td { background: rgba(255,255,255,0.015); }
+  table.cfg td.k { color: var(--accent-dim); word-break: break-all; width: 42%; }
+  table.cfg td.v { width: 52%; }
+  table.cfg td.act { width: 6%; text-align: right; white-space: nowrap; }
+  table.cfg input.vedit {
+    width: 100%; background: transparent; border: 1px solid transparent;
+    border-radius: 4px; color: var(--text); font-family: var(--mono);
+    font-size: 12px; padding: 5px 7px;
+  }
+  table.cfg input.vedit:hover { border-color: var(--border-bright); }
+  table.cfg input.vedit:focus { border-color: var(--accent-dim); background: var(--bg); outline: none; }
+  table.cfg tr.dirty td.k { color: var(--dirty); }
+  table.cfg tr.dirty input.vedit { border-color: rgba(245,166,35,0.4); }
+  table.cfg tr.added td.k::before { content: '＋ '; color: var(--ok); }
+  table.cfg tr.removed { opacity: 0.4; }
+  table.cfg tr.removed input.vedit { text-decoration: line-through; }
+  .cfg-empty { padding: 32px; text-align: center; color: var(--text-dim); font-family: var(--mono); font-size: 12px; }
+
+  .addkey-row { display: flex; gap: 8px; margin-top: 10px; }
+  .addkey-row input { flex: 1; }
+
+  /* ---------- Terminal ---------- */
+  .term {
+    background: #05070a; border: 1px solid var(--border); border-radius: 8px;
+    font-family: var(--mono); font-size: 12px; padding: 12px;
+    height: 340px; overflow-y: auto; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  }
+  .term .cmd { color: var(--accent); }
+  .term .cmd::before { content: '$ '; color: var(--text-dim); }
+  .term .out { color: var(--text); }
+  .term .err { color: var(--error); }
+  .term .sys { color: var(--text-dim); font-style: italic; }
+  .term-input-row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .term-prompt { color: var(--accent); font-family: var(--mono); font-size: 13px; }
+  .term-input-row input { flex: 1; }
+  .quick-cmds { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .chip {
+    background: var(--surface-2); border: 1px solid var(--border-bright);
+    color: var(--text-dim); font-family: var(--mono); font-size: 11px;
+    padding: 4px 10px; border-radius: 100px; cursor: pointer; transition: all 0.15s;
+  }
+  .chip:hover { color: var(--accent); border-color: var(--accent-dim); }
+  .chip.danger:hover { color: var(--error); border-color: var(--error); }
+
+  /* ---------- Log ---------- */
+  #log {
+    background: #05070a; border: 1px solid var(--border); border-radius: 8px;
+    font-family: var(--mono); font-size: 11px; padding: 12px;
+    height: 340px; overflow-y: auto; line-height: 1.7;
+  }
+  .log-info { color: var(--text); }
+  .log-ok { color: var(--ok); }
+  .log-warn { color: var(--warn); }
+  .log-error { color: var(--error); }
+  .log-dim { color: var(--text-dim); }
+  .log-ts { color: var(--text-dimmer); margin-right: 8px; }
+
+  /* ---------- Toasts ---------- */
+  #toasts {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; gap: 8px; z-index: 1000; align-items: center;
+    pointer-events: none; width: calc(100% - 32px); max-width: 520px;
+  }
+  .toast {
+    pointer-events: auto; width: 100%;
+    background: var(--surface-2); border: 1px solid var(--border-bright);
+    border-left-width: 3px; border-radius: 8px; padding: 11px 14px;
+    font-family: var(--mono); font-size: 12px; color: var(--text);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+    animation: toastIn 0.2s ease; display: flex; align-items: center; gap: 10px;
+  }
+  .toast.ok { border-left-color: var(--ok); }
+  .toast.error { border-left-color: var(--error); }
+  .toast.warn { border-left-color: var(--warn); }
+  .toast.info { border-left-color: var(--info); }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- Busy overlay ---------- */
+  #busy {
+    position: fixed; inset: 0; background: rgba(5,7,10,0.55);
+    display: none; align-items: center; justify-content: center; z-index: 900;
+    backdrop-filter: blur(2px);
+  }
+  #busy.show { display: flex; }
+  .spinner {
+    width: 34px; height: 34px; border: 3px solid var(--border-bright);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite;
+  }
+  #busy .label { margin-left: 14px; font-family: var(--mono); font-size: 13px; color: var(--text); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 560px) {
+    header { flex-wrap: wrap; }
+    .conn-pill { margin-left: 0; }
+    table.cfg td.k { width: 40%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="brand">
+    <h1>UTR//BLE</h1>
+    <span class="tagline">UniFi Travel Router · BLE Config Client</span>
+  </div>
+  <div class="conn-pill">
+    <span class="status-dot" id="connDot"></span>
+    <span class="who" id="connStatus">Disconnected</span>
+  </div>
+</header>
+
+<div class="compat-warning" id="compatWarn">
+  ⚠ Web Bluetooth is not available. Use Chrome or Edge on desktop / Android. Safari and iOS are not supported.
+</div>
+
+<!-- Connection Card -->
+<div class="card" id="connCard">
+  <div class="card-header">Connection</div>
+  <div class="card-body">
+    <div class="field-row">
+      <div class="field-group">
+        <label>Username</label>
+        <input type="text" id="username" value="ui" autocomplete="off" spellcheck="false" />
+      </div>
+      <div class="field-group">
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="password" placeholder="ui (default)" autocomplete="off" />
+          <button class="pw-toggle" id="pwToggle" type="button" tabindex="-1">SHOW</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="advanced-toggle" id="advToggle" type="button">▸ Advanced</button>
+    <div class="field-row" id="advancedRow">
+      <div class="field-group" style="flex:1">
+        <label>Service UUID <span style="color:var(--accent-dim);font-size:9px;text-transform:none">(the device chooser only lists devices advertising this)</span></label>
+        <input type="text" id="serviceUuid" value="69b6a9f0-b7fa-4f67-b188-1d001bd30123" style="font-size:11px;color:var(--accent-dim)" spellcheck="false" />
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:6px">
+      <button class="btn-primary" id="btnConnect">Connect</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tabs (shown once connected) -->
+<div class="tabs section-hidden" id="tabs">
+  <button class="tab active" data-tab="config">Config</button>
+  <button class="tab" data-tab="shell">Shell</button>
+  <button class="tab" data-tab="log">Log<span class="badge section-hidden" id="logBadge">0</span></button>
+</div>
+
+<!-- CONFIG PANEL -->
+<div class="tab-panel section-hidden" id="panel-config">
+  <div class="card">
+    <div class="card-header">
+      Configuration Editor
+      <span id="pendingBadge" class="badge section-hidden" style="margin-left:8px">0</span>
+    </div>
+    <div class="card-body">
+      <div class="cfg-toolbar">
+        <div class="cfg-search">
+          <span class="icon">⌕</span>
+          <input type="text" id="cfgSearch" placeholder="Filter keys / values…" spellcheck="false" />
+        </div>
+        <button class="btn-secondary btn-sm" id="btnReload">Reload</button>
+        <button class="btn-secondary btn-sm" id="btnExport">Export ↓</button>
+        <button class="btn-secondary btn-sm" id="btnImport">Import ↑</button>
+        <input type="file" id="importFile" accept=".cfg,.txt,.conf" style="display:none" />
+        <span class="cfg-meta" id="cfgMeta"></span>
+      </div>
+
+      <div class="cfg-table-wrap">
+        <table class="cfg">
+          <thead><tr><th>Key</th><th>Value</th><th></th></tr></thead>
+          <tbody id="cfgBody"></tbody>
+        </table>
+        <div class="cfg-empty" id="cfgEmpty">No config loaded yet — press <strong>Reload</strong>.</div>
+      </div>
+
+      <div class="addkey-row">
+        <input type="text" id="newKey" placeholder="new.key" spellcheck="false" />
+        <input type="text" id="newVal" placeholder="value" spellcheck="false" />
+        <button class="btn-secondary btn-sm" id="btnAddKey">Add</button>
+      </div>
+
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn-primary" id="btnApply" disabled>Apply Changes</button>
+        <button class="btn-secondary" id="btnDiscard" disabled>Discard</button>
+        <span class="cfg-meta" id="applyHint"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">Quick Toggles</div>
+    <div class="card-body">
+      <div class="btn-row">
+        <button class="btn-secondary" id="btnSshOn">SSH On</button>
+        <button class="btn-secondary" id="btnSshOff">SSH Off</button>
+        <button class="btn-secondary" id="btnDump">Reload Config</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SHELL PANEL -->
+<div class="tab-panel section-hidden" id="panel-shell">
+  <div class="card">
+    <div class="card-header">
+      Shell
+      <button class="btn-ghost btn-sm" id="btnCopyTerm" style="margin-left:auto">Copy</button>
+      <button class="btn-ghost btn-sm" id="btnClearTerm">Clear</button>
+    </div>
+    <div class="card-body">
+      <div class="quick-cmds" id="quickCmds"></div>
+      <div class="term" id="term"></div>
+      <div class="term-input-row">
+        <span class="term-prompt">$</span>
+        <input type="text" id="shellCmd" placeholder="type a command · ↑/↓ history" spellcheck="false" autocomplete="off" />
+        <button class="btn-secondary" id="btnRun">Run</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOG PANEL -->
+<div class="tab-panel section-hidden" id="panel-log">
+  <div class="card">
+    <div class="card-header">
+      Log
+      <button class="btn-ghost btn-sm" id="btnCopyLog" style="margin-left:auto">Copy</button>
+      <button class="btn-ghost btn-sm" id="btnClearLog">Clear</button>
+    </div>
+    <div class="card-body"><div id="log"></div></div>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<div id="toasts"></div>
+<div id="busy"><div class="spinner"></div><span class="label" id="busyLabel">Working…</span></div>
+
+<!-- =========================================================
+     BUNDLED LIBRARIES (inlined so the page works offline, e.g. while
+     setting up a travel router with no internet). Unmodified copies of:
+       pako 2.1.0 (MIT AND Zlib)  cdnjs sha512-g2TeAWw5GPnX7z0Kn8nFbYfeHcvAu/tx6d6mrLe/90mkCxO+RcptyYpksUz35EO337F83bZwcmUyHiHamspkfg==
+       tweetnacl-js 1.0.3 (public domain / Unlicense)  cdnjs sha512-Y3uH6LJI2RBp6Ebvyom1/v+MQitXJBNSshRcTxKHn0sL0DSf+G+8KK1VZsXtzlX9xd17gGNi61MdYdcY+56oNw==
+     ========================================================= -->
+<script>
+/*! pako 2.1.0 https://github.com/nodeca/pako @license (MIT AND Zlib) */
+!function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"function"==typeof define&&define.amd?define(["exports"],e):e((t="undefined"!=typeof globalThis?globalThis:t||self).pako={})}(this,(function(t){"use strict";function e(t){let e=t.length;for(;--e>=0;)t[e]=0}const a=256,i=286,n=30,s=15,r=new Uint8Array([0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0]),o=new Uint8Array([0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13]),l=new Uint8Array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,3,7]),h=new Uint8Array([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]),d=new Array(576);e(d);const _=new Array(60);e(_);const f=new Array(512);e(f);const c=new Array(256);e(c);const u=new Array(29);e(u);const w=new Array(n);function m(t,e,a,i,n){this.static_tree=t,this.extra_bits=e,this.extra_base=a,this.elems=i,this.max_length=n,this.has_stree=t&&t.length}let b,g,p;function k(t,e){this.dyn_tree=t,this.max_code=0,this.stat_desc=e}e(w);const v=t=>t<256?f[t]:f[256+(t>>>7)],y=(t,e)=>{t.pending_buf[t.pending++]=255&e,t.pending_buf[t.pending++]=e>>>8&255},x=(t,e,a)=>{t.bi_valid>16-a?(t.bi_buf|=e<<t.bi_valid&65535,y(t,t.bi_buf),t.bi_buf=e>>16-t.bi_valid,t.bi_valid+=a-16):(t.bi_buf|=e<<t.bi_valid&65535,t.bi_valid+=a)},z=(t,e,a)=>{x(t,a[2*e],a[2*e+1])},A=(t,e)=>{let a=0;do{a|=1&t,t>>>=1,a<<=1}while(--e>0);return a>>>1},E=(t,e,a)=>{const i=new Array(16);let n,r,o=0;for(n=1;n<=s;n++)o=o+a[n-1]<<1,i[n]=o;for(r=0;r<=e;r++){let e=t[2*r+1];0!==e&&(t[2*r]=A(i[e]++,e))}},R=t=>{let e;for(e=0;e<i;e++)t.dyn_ltree[2*e]=0;for(e=0;e<n;e++)t.dyn_dtree[2*e]=0;for(e=0;e<19;e++)t.bl_tree[2*e]=0;t.dyn_ltree[512]=1,t.opt_len=t.static_len=0,t.sym_next=t.matches=0},Z=t=>{t.bi_valid>8?y(t,t.bi_buf):t.bi_valid>0&&(t.pending_buf[t.pending++]=t.bi_buf),t.bi_buf=0,t.bi_valid=0},U=(t,e,a,i)=>{const n=2*e,s=2*a;return t[n]<t[s]||t[n]===t[s]&&i[e]<=i[a]},S=(t,e,a)=>{const i=t.heap[a];let n=a<<1;for(;n<=t.heap_len&&(n<t.heap_len&&U(e,t.heap[n+1],t.heap[n],t.depth)&&n++,!U(e,i,t.heap[n],t.depth));)t.heap[a]=t.heap[n],a=n,n<<=1;t.heap[a]=i},D=(t,e,i)=>{let n,s,l,h,d=0;if(0!==t.sym_next)do{n=255&t.pending_buf[t.sym_buf+d++],n+=(255&t.pending_buf[t.sym_buf+d++])<<8,s=t.pending_buf[t.sym_buf+d++],0===n?z(t,s,e):(l=c[s],z(t,l+a+1,e),h=r[l],0!==h&&(s-=u[l],x(t,s,h)),n--,l=v(n),z(t,l,i),h=o[l],0!==h&&(n-=w[l],x(t,n,h)))}while(d<t.sym_next);z(t,256,e)},T=(t,e)=>{const a=e.dyn_tree,i=e.stat_desc.static_tree,n=e.stat_desc.has_stree,r=e.stat_desc.elems;let o,l,h,d=-1;for(t.heap_len=0,t.heap_max=573,o=0;o<r;o++)0!==a[2*o]?(t.heap[++t.heap_len]=d=o,t.depth[o]=0):a[2*o+1]=0;for(;t.heap_len<2;)h=t.heap[++t.heap_len]=d<2?++d:0,a[2*h]=1,t.depth[h]=0,t.opt_len--,n&&(t.static_len-=i[2*h+1]);for(e.max_code=d,o=t.heap_len>>1;o>=1;o--)S(t,a,o);h=r;do{o=t.heap[1],t.heap[1]=t.heap[t.heap_len--],S(t,a,1),l=t.heap[1],t.heap[--t.heap_max]=o,t.heap[--t.heap_max]=l,a[2*h]=a[2*o]+a[2*l],t.depth[h]=(t.depth[o]>=t.depth[l]?t.depth[o]:t.depth[l])+1,a[2*o+1]=a[2*l+1]=h,t.heap[1]=h++,S(t,a,1)}while(t.heap_len>=2);t.heap[--t.heap_max]=t.heap[1],((t,e)=>{const a=e.dyn_tree,i=e.max_code,n=e.stat_desc.static_tree,r=e.stat_desc.has_stree,o=e.stat_desc.extra_bits,l=e.stat_desc.extra_base,h=e.stat_desc.max_length;let d,_,f,c,u,w,m=0;for(c=0;c<=s;c++)t.bl_count[c]=0;for(a[2*t.heap[t.heap_max]+1]=0,d=t.heap_max+1;d<573;d++)_=t.heap[d],c=a[2*a[2*_+1]+1]+1,c>h&&(c=h,m++),a[2*_+1]=c,_>i||(t.bl_count[c]++,u=0,_>=l&&(u=o[_-l]),w=a[2*_],t.opt_len+=w*(c+u),r&&(t.static_len+=w*(n[2*_+1]+u)));if(0!==m){do{for(c=h-1;0===t.bl_count[c];)c--;t.bl_count[c]--,t.bl_count[c+1]+=2,t.bl_count[h]--,m-=2}while(m>0);for(c=h;0!==c;c--)for(_=t.bl_count[c];0!==_;)f=t.heap[--d],f>i||(a[2*f+1]!==c&&(t.opt_len+=(c-a[2*f+1])*a[2*f],a[2*f+1]=c),_--)}})(t,e),E(a,d,t.bl_count)},O=(t,e,a)=>{let i,n,s=-1,r=e[1],o=0,l=7,h=4;for(0===r&&(l=138,h=3),e[2*(a+1)+1]=65535,i=0;i<=a;i++)n=r,r=e[2*(i+1)+1],++o<l&&n===r||(o<h?t.bl_tree[2*n]+=o:0!==n?(n!==s&&t.bl_tree[2*n]++,t.bl_tree[32]++):o<=10?t.bl_tree[34]++:t.bl_tree[36]++,o=0,s=n,0===r?(l=138,h=3):n===r?(l=6,h=3):(l=7,h=4))},I=(t,e,a)=>{let i,n,s=-1,r=e[1],o=0,l=7,h=4;for(0===r&&(l=138,h=3),i=0;i<=a;i++)if(n=r,r=e[2*(i+1)+1],!(++o<l&&n===r)){if(o<h)do{z(t,n,t.bl_tree)}while(0!=--o);else 0!==n?(n!==s&&(z(t,n,t.bl_tree),o--),z(t,16,t.bl_tree),x(t,o-3,2)):o<=10?(z(t,17,t.bl_tree),x(t,o-3,3)):(z(t,18,t.bl_tree),x(t,o-11,7));o=0,s=n,0===r?(l=138,h=3):n===r?(l=6,h=3):(l=7,h=4)}};let F=!1;const L=(t,e,a,i)=>{x(t,0+(i?1:0),3),Z(t),y(t,a),y(t,~a),a&&t.pending_buf.set(t.window.subarray(e,e+a),t.pending),t.pending+=a};var N=(t,e,i,n)=>{let s,r,o=0;t.level>0?(2===t.strm.data_type&&(t.strm.data_type=(t=>{let e,i=4093624447;for(e=0;e<=31;e++,i>>>=1)if(1&i&&0!==t.dyn_ltree[2*e])return 0;if(0!==t.dyn_ltree[18]||0!==t.dyn_ltree[20]||0!==t.dyn_ltree[26])return 1;for(e=32;e<a;e++)if(0!==t.dyn_ltree[2*e])return 1;return 0})(t)),T(t,t.l_desc),T(t,t.d_desc),o=(t=>{let e;for(O(t,t.dyn_ltree,t.l_desc.max_code),O(t,t.dyn_dtree,t.d_desc.max_code),T(t,t.bl_desc),e=18;e>=3&&0===t.bl_tree[2*h[e]+1];e--);return t.opt_len+=3*(e+1)+5+5+4,e})(t),s=t.opt_len+3+7>>>3,r=t.static_len+3+7>>>3,r<=s&&(s=r)):s=r=i+5,i+4<=s&&-1!==e?L(t,e,i,n):4===t.strategy||r===s?(x(t,2+(n?1:0),3),D(t,d,_)):(x(t,4+(n?1:0),3),((t,e,a,i)=>{let n;for(x(t,e-257,5),x(t,a-1,5),x(t,i-4,4),n=0;n<i;n++)x(t,t.bl_tree[2*h[n]+1],3);I(t,t.dyn_ltree,e-1),I(t,t.dyn_dtree,a-1)})(t,t.l_desc.max_code+1,t.d_desc.max_code+1,o+1),D(t,t.dyn_ltree,t.dyn_dtree)),R(t),n&&Z(t)},B={_tr_init:t=>{F||((()=>{let t,e,a,h,k;const v=new Array(16);for(a=0,h=0;h<28;h++)for(u[h]=a,t=0;t<1<<r[h];t++)c[a++]=h;for(c[a-1]=h,k=0,h=0;h<16;h++)for(w[h]=k,t=0;t<1<<o[h];t++)f[k++]=h;for(k>>=7;h<n;h++)for(w[h]=k<<7,t=0;t<1<<o[h]-7;t++)f[256+k++]=h;for(e=0;e<=s;e++)v[e]=0;for(t=0;t<=143;)d[2*t+1]=8,t++,v[8]++;for(;t<=255;)d[2*t+1]=9,t++,v[9]++;for(;t<=279;)d[2*t+1]=7,t++,v[7]++;for(;t<=287;)d[2*t+1]=8,t++,v[8]++;for(E(d,287,v),t=0;t<n;t++)_[2*t+1]=5,_[2*t]=A(t,5);b=new m(d,r,257,i,s),g=new m(_,o,0,n,s),p=new m(new Array(0),l,0,19,7)})(),F=!0),t.l_desc=new k(t.dyn_ltree,b),t.d_desc=new k(t.dyn_dtree,g),t.bl_desc=new k(t.bl_tree,p),t.bi_buf=0,t.bi_valid=0,R(t)},_tr_stored_block:L,_tr_flush_block:N,_tr_tally:(t,e,i)=>(t.pending_buf[t.sym_buf+t.sym_next++]=e,t.pending_buf[t.sym_buf+t.sym_next++]=e>>8,t.pending_buf[t.sym_buf+t.sym_next++]=i,0===e?t.dyn_ltree[2*i]++:(t.matches++,e--,t.dyn_ltree[2*(c[i]+a+1)]++,t.dyn_dtree[2*v(e)]++),t.sym_next===t.sym_end),_tr_align:t=>{x(t,2,3),z(t,256,d),(t=>{16===t.bi_valid?(y(t,t.bi_buf),t.bi_buf=0,t.bi_valid=0):t.bi_valid>=8&&(t.pending_buf[t.pending++]=255&t.bi_buf,t.bi_buf>>=8,t.bi_valid-=8)})(t)}};var C=(t,e,a,i)=>{let n=65535&t|0,s=t>>>16&65535|0,r=0;for(;0!==a;){r=a>2e3?2e3:a,a-=r;do{n=n+e[i++]|0,s=s+n|0}while(--r);n%=65521,s%=65521}return n|s<<16|0};const M=new Uint32Array((()=>{let t,e=[];for(var a=0;a<256;a++){t=a;for(var i=0;i<8;i++)t=1&t?3988292384^t>>>1:t>>>1;e[a]=t}return e})());var H=(t,e,a,i)=>{const n=M,s=i+a;t^=-1;for(let a=i;a<s;a++)t=t>>>8^n[255&(t^e[a])];return-1^t},j={2:"need dictionary",1:"stream end",0:"","-1":"file error","-2":"stream error","-3":"data error","-4":"insufficient memory","-5":"buffer error","-6":"incompatible version"},K={Z_NO_FLUSH:0,Z_PARTIAL_FLUSH:1,Z_SYNC_FLUSH:2,Z_FULL_FLUSH:3,Z_FINISH:4,Z_BLOCK:5,Z_TREES:6,Z_OK:0,Z_STREAM_END:1,Z_NEED_DICT:2,Z_ERRNO:-1,Z_STREAM_ERROR:-2,Z_DATA_ERROR:-3,Z_MEM_ERROR:-4,Z_BUF_ERROR:-5,Z_NO_COMPRESSION:0,Z_BEST_SPEED:1,Z_BEST_COMPRESSION:9,Z_DEFAULT_COMPRESSION:-1,Z_FILTERED:1,Z_HUFFMAN_ONLY:2,Z_RLE:3,Z_FIXED:4,Z_DEFAULT_STRATEGY:0,Z_BINARY:0,Z_TEXT:1,Z_UNKNOWN:2,Z_DEFLATED:8};const{_tr_init:P,_tr_stored_block:Y,_tr_flush_block:G,_tr_tally:X,_tr_align:W}=B,{Z_NO_FLUSH:q,Z_PARTIAL_FLUSH:J,Z_FULL_FLUSH:Q,Z_FINISH:V,Z_BLOCK:$,Z_OK:tt,Z_STREAM_END:et,Z_STREAM_ERROR:at,Z_DATA_ERROR:it,Z_BUF_ERROR:nt,Z_DEFAULT_COMPRESSION:st,Z_FILTERED:rt,Z_HUFFMAN_ONLY:ot,Z_RLE:lt,Z_FIXED:ht,Z_DEFAULT_STRATEGY:dt,Z_UNKNOWN:_t,Z_DEFLATED:ft}=K,ct=258,ut=262,wt=42,mt=113,bt=666,gt=(t,e)=>(t.msg=j[e],e),pt=t=>2*t-(t>4?9:0),kt=t=>{let e=t.length;for(;--e>=0;)t[e]=0},vt=t=>{let e,a,i,n=t.w_size;e=t.hash_size,i=e;do{a=t.head[--i],t.head[i]=a>=n?a-n:0}while(--e);e=n,i=e;do{a=t.prev[--i],t.prev[i]=a>=n?a-n:0}while(--e)};let yt=(t,e,a)=>(e<<t.hash_shift^a)&t.hash_mask;const xt=t=>{const e=t.state;let a=e.pending;a>t.avail_out&&(a=t.avail_out),0!==a&&(t.output.set(e.pending_buf.subarray(e.pending_out,e.pending_out+a),t.next_out),t.next_out+=a,e.pending_out+=a,t.total_out+=a,t.avail_out-=a,e.pending-=a,0===e.pending&&(e.pending_out=0))},zt=(t,e)=>{G(t,t.block_start>=0?t.block_start:-1,t.strstart-t.block_start,e),t.block_start=t.strstart,xt(t.strm)},At=(t,e)=>{t.pending_buf[t.pending++]=e},Et=(t,e)=>{t.pending_buf[t.pending++]=e>>>8&255,t.pending_buf[t.pending++]=255&e},Rt=(t,e,a,i)=>{let n=t.avail_in;return n>i&&(n=i),0===n?0:(t.avail_in-=n,e.set(t.input.subarray(t.next_in,t.next_in+n),a),1===t.state.wrap?t.adler=C(t.adler,e,n,a):2===t.state.wrap&&(t.adler=H(t.adler,e,n,a)),t.next_in+=n,t.total_in+=n,n)},Zt=(t,e)=>{let a,i,n=t.max_chain_length,s=t.strstart,r=t.prev_length,o=t.nice_match;const l=t.strstart>t.w_size-ut?t.strstart-(t.w_size-ut):0,h=t.window,d=t.w_mask,_=t.prev,f=t.strstart+ct;let c=h[s+r-1],u=h[s+r];t.prev_length>=t.good_match&&(n>>=2),o>t.lookahead&&(o=t.lookahead);do{if(a=e,h[a+r]===u&&h[a+r-1]===c&&h[a]===h[s]&&h[++a]===h[s+1]){s+=2,a++;do{}while(h[++s]===h[++a]&&h[++s]===h[++a]&&h[++s]===h[++a]&&h[++s]===h[++a]&&h[++s]===h[++a]&&h[++s]===h[++a]&&h[++s]===h[++a]&&h[++s]===h[++a]&&s<f);if(i=ct-(f-s),s=f-ct,i>r){if(t.match_start=e,r=i,i>=o)break;c=h[s+r-1],u=h[s+r]}}}while((e=_[e&d])>l&&0!=--n);return r<=t.lookahead?r:t.lookahead},Ut=t=>{const e=t.w_size;let a,i,n;do{if(i=t.window_size-t.lookahead-t.strstart,t.strstart>=e+(e-ut)&&(t.window.set(t.window.subarray(e,e+e-i),0),t.match_start-=e,t.strstart-=e,t.block_start-=e,t.insert>t.strstart&&(t.insert=t.strstart),vt(t),i+=e),0===t.strm.avail_in)break;if(a=Rt(t.strm,t.window,t.strstart+t.lookahead,i),t.lookahead+=a,t.lookahead+t.insert>=3)for(n=t.strstart-t.insert,t.ins_h=t.window[n],t.ins_h=yt(t,t.ins_h,t.window[n+1]);t.insert&&(t.ins_h=yt(t,t.ins_h,t.window[n+3-1]),t.prev[n&t.w_mask]=t.head[t.ins_h],t.head[t.ins_h]=n,n++,t.insert--,!(t.lookahead+t.insert<3)););}while(t.lookahead<ut&&0!==t.strm.avail_in)},St=(t,e)=>{let a,i,n,s=t.pending_buf_size-5>t.w_size?t.w_size:t.pending_buf_size-5,r=0,o=t.strm.avail_in;do{if(a=65535,n=t.bi_valid+42>>3,t.strm.avail_out<n)break;if(n=t.strm.avail_out-n,i=t.strstart-t.block_start,a>i+t.strm.avail_in&&(a=i+t.strm.avail_in),a>n&&(a=n),a<s&&(0===a&&e!==V||e===q||a!==i+t.strm.avail_in))break;r=e===V&&a===i+t.strm.avail_in?1:0,Y(t,0,0,r),t.pending_buf[t.pending-4]=a,t.pending_buf[t.pending-3]=a>>8,t.pending_buf[t.pending-2]=~a,t.pending_buf[t.pending-1]=~a>>8,xt(t.strm),i&&(i>a&&(i=a),t.strm.output.set(t.window.subarray(t.block_start,t.block_start+i),t.strm.next_out),t.strm.next_out+=i,t.strm.avail_out-=i,t.strm.total_out+=i,t.block_start+=i,a-=i),a&&(Rt(t.strm,t.strm.output,t.strm.next_out,a),t.strm.next_out+=a,t.strm.avail_out-=a,t.strm.total_out+=a)}while(0===r);return o-=t.strm.avail_in,o&&(o>=t.w_size?(t.matches=2,t.window.set(t.strm.input.subarray(t.strm.next_in-t.w_size,t.strm.next_in),0),t.strstart=t.w_size,t.insert=t.strstart):(t.window_size-t.strstart<=o&&(t.strstart-=t.w_size,t.window.set(t.window.subarray(t.w_size,t.w_size+t.strstart),0),t.matches<2&&t.matches++,t.insert>t.strstart&&(t.insert=t.strstart)),t.window.set(t.strm.input.subarray(t.strm.next_in-o,t.strm.next_in),t.strstart),t.strstart+=o,t.insert+=o>t.w_size-t.insert?t.w_size-t.insert:o),t.block_start=t.strstart),t.high_water<t.strstart&&(t.high_water=t.strstart),r?4:e!==q&&e!==V&&0===t.strm.avail_in&&t.strstart===t.block_start?2:(n=t.window_size-t.strstart,t.strm.avail_in>n&&t.block_start>=t.w_size&&(t.block_start-=t.w_size,t.strstart-=t.w_size,t.window.set(t.window.subarray(t.w_size,t.w_size+t.strstart),0),t.matches<2&&t.matches++,n+=t.w_size,t.insert>t.strstart&&(t.insert=t.strstart)),n>t.strm.avail_in&&(n=t.strm.avail_in),n&&(Rt(t.strm,t.window,t.strstart,n),t.strstart+=n,t.insert+=n>t.w_size-t.insert?t.w_size-t.insert:n),t.high_water<t.strstart&&(t.high_water=t.strstart),n=t.bi_valid+42>>3,n=t.pending_buf_size-n>65535?65535:t.pending_buf_size-n,s=n>t.w_size?t.w_size:n,i=t.strstart-t.block_start,(i>=s||(i||e===V)&&e!==q&&0===t.strm.avail_in&&i<=n)&&(a=i>n?n:i,r=e===V&&0===t.strm.avail_in&&a===i?1:0,Y(t,t.block_start,a,r),t.block_start+=a,xt(t.strm)),r?3:1)},Dt=(t,e)=>{let a,i;for(;;){if(t.lookahead<ut){if(Ut(t),t.lookahead<ut&&e===q)return 1;if(0===t.lookahead)break}if(a=0,t.lookahead>=3&&(t.ins_h=yt(t,t.ins_h,t.window[t.strstart+3-1]),a=t.prev[t.strstart&t.w_mask]=t.head[t.ins_h],t.head[t.ins_h]=t.strstart),0!==a&&t.strstart-a<=t.w_size-ut&&(t.match_length=Zt(t,a)),t.match_length>=3)if(i=X(t,t.strstart-t.match_start,t.match_length-3),t.lookahead-=t.match_length,t.match_length<=t.max_lazy_match&&t.lookahead>=3){t.match_length--;do{t.strstart++,t.ins_h=yt(t,t.ins_h,t.window[t.strstart+3-1]),a=t.prev[t.strstart&t.w_mask]=t.head[t.ins_h],t.head[t.ins_h]=t.strstart}while(0!=--t.match_length);t.strstart++}else t.strstart+=t.match_length,t.match_length=0,t.ins_h=t.window[t.strstart],t.ins_h=yt(t,t.ins_h,t.window[t.strstart+1]);else i=X(t,0,t.window[t.strstart]),t.lookahead--,t.strstart++;if(i&&(zt(t,!1),0===t.strm.avail_out))return 1}return t.insert=t.strstart<2?t.strstart:2,e===V?(zt(t,!0),0===t.strm.avail_out?3:4):t.sym_next&&(zt(t,!1),0===t.strm.avail_out)?1:2},Tt=(t,e)=>{let a,i,n;for(;;){if(t.lookahead<ut){if(Ut(t),t.lookahead<ut&&e===q)return 1;if(0===t.lookahead)break}if(a=0,t.lookahead>=3&&(t.ins_h=yt(t,t.ins_h,t.window[t.strstart+3-1]),a=t.prev[t.strstart&t.w_mask]=t.head[t.ins_h],t.head[t.ins_h]=t.strstart),t.prev_length=t.match_length,t.prev_match=t.match_start,t.match_length=2,0!==a&&t.prev_length<t.max_lazy_match&&t.strstart-a<=t.w_size-ut&&(t.match_length=Zt(t,a),t.match_length<=5&&(t.strategy===rt||3===t.match_length&&t.strstart-t.match_start>4096)&&(t.match_length=2)),t.prev_length>=3&&t.match_length<=t.prev_length){n=t.strstart+t.lookahead-3,i=X(t,t.strstart-1-t.prev_match,t.prev_length-3),t.lookahead-=t.prev_length-1,t.prev_length-=2;do{++t.strstart<=n&&(t.ins_h=yt(t,t.ins_h,t.window[t.strstart+3-1]),a=t.prev[t.strstart&t.w_mask]=t.head[t.ins_h],t.head[t.ins_h]=t.strstart)}while(0!=--t.prev_length);if(t.match_available=0,t.match_length=2,t.strstart++,i&&(zt(t,!1),0===t.strm.avail_out))return 1}else if(t.match_available){if(i=X(t,0,t.window[t.strstart-1]),i&&zt(t,!1),t.strstart++,t.lookahead--,0===t.strm.avail_out)return 1}else t.match_available=1,t.strstart++,t.lookahead--}return t.match_available&&(i=X(t,0,t.window[t.strstart-1]),t.match_available=0),t.insert=t.strstart<2?t.strstart:2,e===V?(zt(t,!0),0===t.strm.avail_out?3:4):t.sym_next&&(zt(t,!1),0===t.strm.avail_out)?1:2};function Ot(t,e,a,i,n){this.good_length=t,this.max_lazy=e,this.nice_length=a,this.max_chain=i,this.func=n}const It=[new Ot(0,0,0,0,St),new Ot(4,4,8,4,Dt),new Ot(4,5,16,8,Dt),new Ot(4,6,32,32,Dt),new Ot(4,4,16,16,Tt),new Ot(8,16,32,32,Tt),new Ot(8,16,128,128,Tt),new Ot(8,32,128,256,Tt),new Ot(32,128,258,1024,Tt),new Ot(32,258,258,4096,Tt)];function Ft(){this.strm=null,this.status=0,this.pending_buf=null,this.pending_buf_size=0,this.pending_out=0,this.pending=0,this.wrap=0,this.gzhead=null,this.gzindex=0,this.method=ft,this.last_flush=-1,this.w_size=0,this.w_bits=0,this.w_mask=0,this.window=null,this.window_size=0,this.prev=null,this.head=null,this.ins_h=0,this.hash_size=0,this.hash_bits=0,this.hash_mask=0,this.hash_shift=0,this.block_start=0,this.match_length=0,this.prev_match=0,this.match_available=0,this.strstart=0,this.match_start=0,this.lookahead=0,this.prev_length=0,this.max_chain_length=0,this.max_lazy_match=0,this.level=0,this.strategy=0,this.good_match=0,this.nice_match=0,this.dyn_ltree=new Uint16Array(1146),this.dyn_dtree=new Uint16Array(122),this.bl_tree=new Uint16Array(78),kt(this.dyn_ltree),kt(this.dyn_dtree),kt(this.bl_tree),this.l_desc=null,this.d_desc=null,this.bl_desc=null,this.bl_count=new Uint16Array(16),this.heap=new Uint16Array(573),kt(this.heap),this.heap_len=0,this.heap_max=0,this.depth=new Uint16Array(573),kt(this.depth),this.sym_buf=0,this.lit_bufsize=0,this.sym_next=0,this.sym_end=0,this.opt_len=0,this.static_len=0,this.matches=0,this.insert=0,this.bi_buf=0,this.bi_valid=0}const Lt=t=>{if(!t)return 1;const e=t.state;return!e||e.strm!==t||e.status!==wt&&57!==e.status&&69!==e.status&&73!==e.status&&91!==e.status&&103!==e.status&&e.status!==mt&&e.status!==bt?1:0},Nt=t=>{if(Lt(t))return gt(t,at);t.total_in=t.total_out=0,t.data_type=_t;const e=t.state;return e.pending=0,e.pending_out=0,e.wrap<0&&(e.wrap=-e.wrap),e.status=2===e.wrap?57:e.wrap?wt:mt,t.adler=2===e.wrap?0:1,e.last_flush=-2,P(e),tt},Bt=t=>{const e=Nt(t);var a;return e===tt&&((a=t.state).window_size=2*a.w_size,kt(a.head),a.max_lazy_match=It[a.level].max_lazy,a.good_match=It[a.level].good_length,a.nice_match=It[a.level].nice_length,a.max_chain_length=It[a.level].max_chain,a.strstart=0,a.block_start=0,a.lookahead=0,a.insert=0,a.match_length=a.prev_length=2,a.match_available=0,a.ins_h=0),e},Ct=(t,e,a,i,n,s)=>{if(!t)return at;let r=1;if(e===st&&(e=6),i<0?(r=0,i=-i):i>15&&(r=2,i-=16),n<1||n>9||a!==ft||i<8||i>15||e<0||e>9||s<0||s>ht||8===i&&1!==r)return gt(t,at);8===i&&(i=9);const o=new Ft;return t.state=o,o.strm=t,o.status=wt,o.wrap=r,o.gzhead=null,o.w_bits=i,o.w_size=1<<o.w_bits,o.w_mask=o.w_size-1,o.hash_bits=n+7,o.hash_size=1<<o.hash_bits,o.hash_mask=o.hash_size-1,o.hash_shift=~~((o.hash_bits+3-1)/3),o.window=new Uint8Array(2*o.w_size),o.head=new Uint16Array(o.hash_size),o.prev=new Uint16Array(o.w_size),o.lit_bufsize=1<<n+6,o.pending_buf_size=4*o.lit_bufsize,o.pending_buf=new Uint8Array(o.pending_buf_size),o.sym_buf=o.lit_bufsize,o.sym_end=3*(o.lit_bufsize-1),o.level=e,o.strategy=s,o.method=a,Bt(t)};var Mt={deflateInit:(t,e)=>Ct(t,e,ft,15,8,dt),deflateInit2:Ct,deflateReset:Bt,deflateResetKeep:Nt,deflateSetHeader:(t,e)=>Lt(t)||2!==t.state.wrap?at:(t.state.gzhead=e,tt),deflate:(t,e)=>{if(Lt(t)||e>$||e<0)return t?gt(t,at):at;const a=t.state;if(!t.output||0!==t.avail_in&&!t.input||a.status===bt&&e!==V)return gt(t,0===t.avail_out?nt:at);const i=a.last_flush;if(a.last_flush=e,0!==a.pending){if(xt(t),0===t.avail_out)return a.last_flush=-1,tt}else if(0===t.avail_in&&pt(e)<=pt(i)&&e!==V)return gt(t,nt);if(a.status===bt&&0!==t.avail_in)return gt(t,nt);if(a.status===wt&&0===a.wrap&&(a.status=mt),a.status===wt){let e=ft+(a.w_bits-8<<4)<<8,i=-1;if(i=a.strategy>=ot||a.level<2?0:a.level<6?1:6===a.level?2:3,e|=i<<6,0!==a.strstart&&(e|=32),e+=31-e%31,Et(a,e),0!==a.strstart&&(Et(a,t.adler>>>16),Et(a,65535&t.adler)),t.adler=1,a.status=mt,xt(t),0!==a.pending)return a.last_flush=-1,tt}if(57===a.status)if(t.adler=0,At(a,31),At(a,139),At(a,8),a.gzhead)At(a,(a.gzhead.text?1:0)+(a.gzhead.hcrc?2:0)+(a.gzhead.extra?4:0)+(a.gzhead.name?8:0)+(a.gzhead.comment?16:0)),At(a,255&a.gzhead.time),At(a,a.gzhead.time>>8&255),At(a,a.gzhead.time>>16&255),At(a,a.gzhead.time>>24&255),At(a,9===a.level?2:a.strategy>=ot||a.level<2?4:0),At(a,255&a.gzhead.os),a.gzhead.extra&&a.gzhead.extra.length&&(At(a,255&a.gzhead.extra.length),At(a,a.gzhead.extra.length>>8&255)),a.gzhead.hcrc&&(t.adler=H(t.adler,a.pending_buf,a.pending,0)),a.gzindex=0,a.status=69;else if(At(a,0),At(a,0),At(a,0),At(a,0),At(a,0),At(a,9===a.level?2:a.strategy>=ot||a.level<2?4:0),At(a,3),a.status=mt,xt(t),0!==a.pending)return a.last_flush=-1,tt;if(69===a.status){if(a.gzhead.extra){let e=a.pending,i=(65535&a.gzhead.extra.length)-a.gzindex;for(;a.pending+i>a.pending_buf_size;){let n=a.pending_buf_size-a.pending;if(a.pending_buf.set(a.gzhead.extra.subarray(a.gzindex,a.gzindex+n),a.pending),a.pending=a.pending_buf_size,a.gzhead.hcrc&&a.pending>e&&(t.adler=H(t.adler,a.pending_buf,a.pending-e,e)),a.gzindex+=n,xt(t),0!==a.pending)return a.last_flush=-1,tt;e=0,i-=n}let n=new Uint8Array(a.gzhead.extra);a.pending_buf.set(n.subarray(a.gzindex,a.gzindex+i),a.pending),a.pending+=i,a.gzhead.hcrc&&a.pending>e&&(t.adler=H(t.adler,a.pending_buf,a.pending-e,e)),a.gzindex=0}a.status=73}if(73===a.status){if(a.gzhead.name){let e,i=a.pending;do{if(a.pending===a.pending_buf_size){if(a.gzhead.hcrc&&a.pending>i&&(t.adler=H(t.adler,a.pending_buf,a.pending-i,i)),xt(t),0!==a.pending)return a.last_flush=-1,tt;i=0}e=a.gzindex<a.gzhead.name.length?255&a.gzhead.name.charCodeAt(a.gzindex++):0,At(a,e)}while(0!==e);a.gzhead.hcrc&&a.pending>i&&(t.adler=H(t.adler,a.pending_buf,a.pending-i,i)),a.gzindex=0}a.status=91}if(91===a.status){if(a.gzhead.comment){let e,i=a.pending;do{if(a.pending===a.pending_buf_size){if(a.gzhead.hcrc&&a.pending>i&&(t.adler=H(t.adler,a.pending_buf,a.pending-i,i)),xt(t),0!==a.pending)return a.last_flush=-1,tt;i=0}e=a.gzindex<a.gzhead.comment.length?255&a.gzhead.comment.charCodeAt(a.gzindex++):0,At(a,e)}while(0!==e);a.gzhead.hcrc&&a.pending>i&&(t.adler=H(t.adler,a.pending_buf,a.pending-i,i))}a.status=103}if(103===a.status){if(a.gzhead.hcrc){if(a.pending+2>a.pending_buf_size&&(xt(t),0!==a.pending))return a.last_flush=-1,tt;At(a,255&t.adler),At(a,t.adler>>8&255),t.adler=0}if(a.status=mt,xt(t),0!==a.pending)return a.last_flush=-1,tt}if(0!==t.avail_in||0!==a.lookahead||e!==q&&a.status!==bt){let i=0===a.level?St(a,e):a.strategy===ot?((t,e)=>{let a;for(;;){if(0===t.lookahead&&(Ut(t),0===t.lookahead)){if(e===q)return 1;break}if(t.match_length=0,a=X(t,0,t.window[t.strstart]),t.lookahead--,t.strstart++,a&&(zt(t,!1),0===t.strm.avail_out))return 1}return t.insert=0,e===V?(zt(t,!0),0===t.strm.avail_out?3:4):t.sym_next&&(zt(t,!1),0===t.strm.avail_out)?1:2})(a,e):a.strategy===lt?((t,e)=>{let a,i,n,s;const r=t.window;for(;;){if(t.lookahead<=ct){if(Ut(t),t.lookahead<=ct&&e===q)return 1;if(0===t.lookahead)break}if(t.match_length=0,t.lookahead>=3&&t.strstart>0&&(n=t.strstart-1,i=r[n],i===r[++n]&&i===r[++n]&&i===r[++n])){s=t.strstart+ct;do{}while(i===r[++n]&&i===r[++n]&&i===r[++n]&&i===r[++n]&&i===r[++n]&&i===r[++n]&&i===r[++n]&&i===r[++n]&&n<s);t.match_length=ct-(s-n),t.match_length>t.lookahead&&(t.match_length=t.lookahead)}if(t.match_length>=3?(a=X(t,1,t.match_length-3),t.lookahead-=t.match_length,t.strstart+=t.match_length,t.match_length=0):(a=X(t,0,t.window[t.strstart]),t.lookahead--,t.strstart++),a&&(zt(t,!1),0===t.strm.avail_out))return 1}return t.insert=0,e===V?(zt(t,!0),0===t.strm.avail_out?3:4):t.sym_next&&(zt(t,!1),0===t.strm.avail_out)?1:2})(a,e):It[a.level].func(a,e);if(3!==i&&4!==i||(a.status=bt),1===i||3===i)return 0===t.avail_out&&(a.last_flush=-1),tt;if(2===i&&(e===J?W(a):e!==$&&(Y(a,0,0,!1),e===Q&&(kt(a.head),0===a.lookahead&&(a.strstart=0,a.block_start=0,a.insert=0))),xt(t),0===t.avail_out))return a.last_flush=-1,tt}return e!==V?tt:a.wrap<=0?et:(2===a.wrap?(At(a,255&t.adler),At(a,t.adler>>8&255),At(a,t.adler>>16&255),At(a,t.adler>>24&255),At(a,255&t.total_in),At(a,t.total_in>>8&255),At(a,t.total_in>>16&255),At(a,t.total_in>>24&255)):(Et(a,t.adler>>>16),Et(a,65535&t.adler)),xt(t),a.wrap>0&&(a.wrap=-a.wrap),0!==a.pending?tt:et)},deflateEnd:t=>{if(Lt(t))return at;const e=t.state.status;return t.state=null,e===mt?gt(t,it):tt},deflateSetDictionary:(t,e)=>{let a=e.length;if(Lt(t))return at;const i=t.state,n=i.wrap;if(2===n||1===n&&i.status!==wt||i.lookahead)return at;if(1===n&&(t.adler=C(t.adler,e,a,0)),i.wrap=0,a>=i.w_size){0===n&&(kt(i.head),i.strstart=0,i.block_start=0,i.insert=0);let t=new Uint8Array(i.w_size);t.set(e.subarray(a-i.w_size,a),0),e=t,a=i.w_size}const s=t.avail_in,r=t.next_in,o=t.input;for(t.avail_in=a,t.next_in=0,t.input=e,Ut(i);i.lookahead>=3;){let t=i.strstart,e=i.lookahead-2;do{i.ins_h=yt(i,i.ins_h,i.window[t+3-1]),i.prev[t&i.w_mask]=i.head[i.ins_h],i.head[i.ins_h]=t,t++}while(--e);i.strstart=t,i.lookahead=2,Ut(i)}return i.strstart+=i.lookahead,i.block_start=i.strstart,i.insert=i.lookahead,i.lookahead=0,i.match_length=i.prev_length=2,i.match_available=0,t.next_in=r,t.input=o,t.avail_in=s,i.wrap=n,tt},deflateInfo:"pako deflate (from Nodeca project)"};const Ht=(t,e)=>Object.prototype.hasOwnProperty.call(t,e);var jt=function(t){const e=Array.prototype.slice.call(arguments,1);for(;e.length;){const a=e.shift();if(a){if("object"!=typeof a)throw new TypeError(a+"must be non-object");for(const e in a)Ht(a,e)&&(t[e]=a[e])}}return t},Kt=t=>{let e=0;for(let a=0,i=t.length;a<i;a++)e+=t[a].length;const a=new Uint8Array(e);for(let e=0,i=0,n=t.length;e<n;e++){let n=t[e];a.set(n,i),i+=n.length}return a};let Pt=!0;try{String.fromCharCode.apply(null,new Uint8Array(1))}catch(t){Pt=!1}const Yt=new Uint8Array(256);for(let t=0;t<256;t++)Yt[t]=t>=252?6:t>=248?5:t>=240?4:t>=224?3:t>=192?2:1;Yt[254]=Yt[254]=1;var Gt=t=>{if("function"==typeof TextEncoder&&TextEncoder.prototype.encode)return(new TextEncoder).encode(t);let e,a,i,n,s,r=t.length,o=0;for(n=0;n<r;n++)a=t.charCodeAt(n),55296==(64512&a)&&n+1<r&&(i=t.charCodeAt(n+1),56320==(64512&i)&&(a=65536+(a-55296<<10)+(i-56320),n++)),o+=a<128?1:a<2048?2:a<65536?3:4;for(e=new Uint8Array(o),s=0,n=0;s<o;n++)a=t.charCodeAt(n),55296==(64512&a)&&n+1<r&&(i=t.charCodeAt(n+1),56320==(64512&i)&&(a=65536+(a-55296<<10)+(i-56320),n++)),a<128?e[s++]=a:a<2048?(e[s++]=192|a>>>6,e[s++]=128|63&a):a<65536?(e[s++]=224|a>>>12,e[s++]=128|a>>>6&63,e[s++]=128|63&a):(e[s++]=240|a>>>18,e[s++]=128|a>>>12&63,e[s++]=128|a>>>6&63,e[s++]=128|63&a);return e},Xt=(t,e)=>{const a=e||t.length;if("function"==typeof TextDecoder&&TextDecoder.prototype.decode)return(new TextDecoder).decode(t.subarray(0,e));let i,n;const s=new Array(2*a);for(n=0,i=0;i<a;){let e=t[i++];if(e<128){s[n++]=e;continue}let r=Yt[e];if(r>4)s[n++]=65533,i+=r-1;else{for(e&=2===r?31:3===r?15:7;r>1&&i<a;)e=e<<6|63&t[i++],r--;r>1?s[n++]=65533:e<65536?s[n++]=e:(e-=65536,s[n++]=55296|e>>10&1023,s[n++]=56320|1023&e)}}return((t,e)=>{if(e<65534&&t.subarray&&Pt)return String.fromCharCode.apply(null,t.length===e?t:t.subarray(0,e));let a="";for(let i=0;i<e;i++)a+=String.fromCharCode(t[i]);return a})(s,n)},Wt=(t,e)=>{(e=e||t.length)>t.length&&(e=t.length);let a=e-1;for(;a>=0&&128==(192&t[a]);)a--;return a<0||0===a?e:a+Yt[t[a]]>e?a:e};var qt=function(){this.input=null,this.next_in=0,this.avail_in=0,this.total_in=0,this.output=null,this.next_out=0,this.avail_out=0,this.total_out=0,this.msg="",this.state=null,this.data_type=2,this.adler=0};const Jt=Object.prototype.toString,{Z_NO_FLUSH:Qt,Z_SYNC_FLUSH:Vt,Z_FULL_FLUSH:$t,Z_FINISH:te,Z_OK:ee,Z_STREAM_END:ae,Z_DEFAULT_COMPRESSION:ie,Z_DEFAULT_STRATEGY:ne,Z_DEFLATED:se}=K;function re(t){this.options=jt({level:ie,method:se,chunkSize:16384,windowBits:15,memLevel:8,strategy:ne},t||{});let e=this.options;e.raw&&e.windowBits>0?e.windowBits=-e.windowBits:e.gzip&&e.windowBits>0&&e.windowBits<16&&(e.windowBits+=16),this.err=0,this.msg="",this.ended=!1,this.chunks=[],this.strm=new qt,this.strm.avail_out=0;let a=Mt.deflateInit2(this.strm,e.level,e.method,e.windowBits,e.memLevel,e.strategy);if(a!==ee)throw new Error(j[a]);if(e.header&&Mt.deflateSetHeader(this.strm,e.header),e.dictionary){let t;if(t="string"==typeof e.dictionary?Gt(e.dictionary):"[object ArrayBuffer]"===Jt.call(e.dictionary)?new Uint8Array(e.dictionary):e.dictionary,a=Mt.deflateSetDictionary(this.strm,t),a!==ee)throw new Error(j[a]);this._dict_set=!0}}function oe(t,e){const a=new re(e);if(a.push(t,!0),a.err)throw a.msg||j[a.err];return a.result}re.prototype.push=function(t,e){const a=this.strm,i=this.options.chunkSize;let n,s;if(this.ended)return!1;for(s=e===~~e?e:!0===e?te:Qt,"string"==typeof t?a.input=Gt(t):"[object ArrayBuffer]"===Jt.call(t)?a.input=new Uint8Array(t):a.input=t,a.next_in=0,a.avail_in=a.input.length;;)if(0===a.avail_out&&(a.output=new Uint8Array(i),a.next_out=0,a.avail_out=i),(s===Vt||s===$t)&&a.avail_out<=6)this.onData(a.output.subarray(0,a.next_out)),a.avail_out=0;else{if(n=Mt.deflate(a,s),n===ae)return a.next_out>0&&this.onData(a.output.subarray(0,a.next_out)),n=Mt.deflateEnd(this.strm),this.onEnd(n),this.ended=!0,n===ee;if(0!==a.avail_out){if(s>0&&a.next_out>0)this.onData(a.output.subarray(0,a.next_out)),a.avail_out=0;else if(0===a.avail_in)break}else this.onData(a.output)}return!0},re.prototype.onData=function(t){this.chunks.push(t)},re.prototype.onEnd=function(t){t===ee&&(this.result=Kt(this.chunks)),this.chunks=[],this.err=t,this.msg=this.strm.msg};var le={Deflate:re,deflate:oe,deflateRaw:function(t,e){return(e=e||{}).raw=!0,oe(t,e)},gzip:function(t,e){return(e=e||{}).gzip=!0,oe(t,e)},constants:K};const he=16209;var de=function(t,e){let a,i,n,s,r,o,l,h,d,_,f,c,u,w,m,b,g,p,k,v,y,x,z,A;const E=t.state;a=t.next_in,z=t.input,i=a+(t.avail_in-5),n=t.next_out,A=t.output,s=n-(e-t.avail_out),r=n+(t.avail_out-257),o=E.dmax,l=E.wsize,h=E.whave,d=E.wnext,_=E.window,f=E.hold,c=E.bits,u=E.lencode,w=E.distcode,m=(1<<E.lenbits)-1,b=(1<<E.distbits)-1;t:do{c<15&&(f+=z[a++]<<c,c+=8,f+=z[a++]<<c,c+=8),g=u[f&m];e:for(;;){if(p=g>>>24,f>>>=p,c-=p,p=g>>>16&255,0===p)A[n++]=65535&g;else{if(!(16&p)){if(0==(64&p)){g=u[(65535&g)+(f&(1<<p)-1)];continue e}if(32&p){E.mode=16191;break t}t.msg="invalid literal/length code",E.mode=he;break t}k=65535&g,p&=15,p&&(c<p&&(f+=z[a++]<<c,c+=8),k+=f&(1<<p)-1,f>>>=p,c-=p),c<15&&(f+=z[a++]<<c,c+=8,f+=z[a++]<<c,c+=8),g=w[f&b];a:for(;;){if(p=g>>>24,f>>>=p,c-=p,p=g>>>16&255,!(16&p)){if(0==(64&p)){g=w[(65535&g)+(f&(1<<p)-1)];continue a}t.msg="invalid distance code",E.mode=he;break t}if(v=65535&g,p&=15,c<p&&(f+=z[a++]<<c,c+=8,c<p&&(f+=z[a++]<<c,c+=8)),v+=f&(1<<p)-1,v>o){t.msg="invalid distance too far back",E.mode=he;break t}if(f>>>=p,c-=p,p=n-s,v>p){if(p=v-p,p>h&&E.sane){t.msg="invalid distance too far back",E.mode=he;break t}if(y=0,x=_,0===d){if(y+=l-p,p<k){k-=p;do{A[n++]=_[y++]}while(--p);y=n-v,x=A}}else if(d<p){if(y+=l+d-p,p-=d,p<k){k-=p;do{A[n++]=_[y++]}while(--p);if(y=0,d<k){p=d,k-=p;do{A[n++]=_[y++]}while(--p);y=n-v,x=A}}}else if(y+=d-p,p<k){k-=p;do{A[n++]=_[y++]}while(--p);y=n-v,x=A}for(;k>2;)A[n++]=x[y++],A[n++]=x[y++],A[n++]=x[y++],k-=3;k&&(A[n++]=x[y++],k>1&&(A[n++]=x[y++]))}else{y=n-v;do{A[n++]=A[y++],A[n++]=A[y++],A[n++]=A[y++],k-=3}while(k>2);k&&(A[n++]=A[y++],k>1&&(A[n++]=A[y++]))}break}}break}}while(a<i&&n<r);k=c>>3,a-=k,c-=k<<3,f&=(1<<c)-1,t.next_in=a,t.next_out=n,t.avail_in=a<i?i-a+5:5-(a-i),t.avail_out=n<r?r-n+257:257-(n-r),E.hold=f,E.bits=c};const _e=15,fe=new Uint16Array([3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258,0,0]),ce=new Uint8Array([16,16,16,16,16,16,16,16,17,17,17,17,18,18,18,18,19,19,19,19,20,20,20,20,21,21,21,21,16,72,78]),ue=new Uint16Array([1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577,0,0]),we=new Uint8Array([16,16,16,16,17,17,18,18,19,19,20,20,21,21,22,22,23,23,24,24,25,25,26,26,27,27,28,28,29,29,64,64]);var me=(t,e,a,i,n,s,r,o)=>{const l=o.bits;let h,d,_,f,c,u,w=0,m=0,b=0,g=0,p=0,k=0,v=0,y=0,x=0,z=0,A=null;const E=new Uint16Array(16),R=new Uint16Array(16);let Z,U,S,D=null;for(w=0;w<=_e;w++)E[w]=0;for(m=0;m<i;m++)E[e[a+m]]++;for(p=l,g=_e;g>=1&&0===E[g];g--);if(p>g&&(p=g),0===g)return n[s++]=20971520,n[s++]=20971520,o.bits=1,0;for(b=1;b<g&&0===E[b];b++);for(p<b&&(p=b),y=1,w=1;w<=_e;w++)if(y<<=1,y-=E[w],y<0)return-1;if(y>0&&(0===t||1!==g))return-1;for(R[1]=0,w=1;w<_e;w++)R[w+1]=R[w]+E[w];for(m=0;m<i;m++)0!==e[a+m]&&(r[R[e[a+m]]++]=m);if(0===t?(A=D=r,u=20):1===t?(A=fe,D=ce,u=257):(A=ue,D=we,u=0),z=0,m=0,w=b,c=s,k=p,v=0,_=-1,x=1<<p,f=x-1,1===t&&x>852||2===t&&x>592)return 1;for(;;){Z=w-v,r[m]+1<u?(U=0,S=r[m]):r[m]>=u?(U=D[r[m]-u],S=A[r[m]-u]):(U=96,S=0),h=1<<w-v,d=1<<k,b=d;do{d-=h,n[c+(z>>v)+d]=Z<<24|U<<16|S|0}while(0!==d);for(h=1<<w-1;z&h;)h>>=1;if(0!==h?(z&=h-1,z+=h):z=0,m++,0==--E[w]){if(w===g)break;w=e[a+r[m]]}if(w>p&&(z&f)!==_){for(0===v&&(v=p),c+=b,k=w-v,y=1<<k;k+v<g&&(y-=E[k+v],!(y<=0));)k++,y<<=1;if(x+=1<<k,1===t&&x>852||2===t&&x>592)return 1;_=z&f,n[_]=p<<24|k<<16|c-s|0}}return 0!==z&&(n[c+z]=w-v<<24|64<<16|0),o.bits=p,0};const{Z_FINISH:be,Z_BLOCK:ge,Z_TREES:pe,Z_OK:ke,Z_STREAM_END:ve,Z_NEED_DICT:ye,Z_STREAM_ERROR:xe,Z_DATA_ERROR:ze,Z_MEM_ERROR:Ae,Z_BUF_ERROR:Ee,Z_DEFLATED:Re}=K,Ze=16180,Ue=16190,Se=16191,De=16192,Te=16194,Oe=16199,Ie=16200,Fe=16206,Le=16209,Ne=t=>(t>>>24&255)+(t>>>8&65280)+((65280&t)<<8)+((255&t)<<24);function Be(){this.strm=null,this.mode=0,this.last=!1,this.wrap=0,this.havedict=!1,this.flags=0,this.dmax=0,this.check=0,this.total=0,this.head=null,this.wbits=0,this.wsize=0,this.whave=0,this.wnext=0,this.window=null,this.hold=0,this.bits=0,this.length=0,this.offset=0,this.extra=0,this.lencode=null,this.distcode=null,this.lenbits=0,this.distbits=0,this.ncode=0,this.nlen=0,this.ndist=0,this.have=0,this.next=null,this.lens=new Uint16Array(320),this.work=new Uint16Array(288),this.lendyn=null,this.distdyn=null,this.sane=0,this.back=0,this.was=0}const Ce=t=>{if(!t)return 1;const e=t.state;return!e||e.strm!==t||e.mode<Ze||e.mode>16211?1:0},Me=t=>{if(Ce(t))return xe;const e=t.state;return t.total_in=t.total_out=e.total=0,t.msg="",e.wrap&&(t.adler=1&e.wrap),e.mode=Ze,e.last=0,e.havedict=0,e.flags=-1,e.dmax=32768,e.head=null,e.hold=0,e.bits=0,e.lencode=e.lendyn=new Int32Array(852),e.distcode=e.distdyn=new Int32Array(592),e.sane=1,e.back=-1,ke},He=t=>{if(Ce(t))return xe;const e=t.state;return e.wsize=0,e.whave=0,e.wnext=0,Me(t)},je=(t,e)=>{let a;if(Ce(t))return xe;const i=t.state;return e<0?(a=0,e=-e):(a=5+(e>>4),e<48&&(e&=15)),e&&(e<8||e>15)?xe:(null!==i.window&&i.wbits!==e&&(i.window=null),i.wrap=a,i.wbits=e,He(t))},Ke=(t,e)=>{if(!t)return xe;const a=new Be;t.state=a,a.strm=t,a.window=null,a.mode=Ze;const i=je(t,e);return i!==ke&&(t.state=null),i};let Pe,Ye,Ge=!0;const Xe=t=>{if(Ge){Pe=new Int32Array(512),Ye=new Int32Array(32);let e=0;for(;e<144;)t.lens[e++]=8;for(;e<256;)t.lens[e++]=9;for(;e<280;)t.lens[e++]=7;for(;e<288;)t.lens[e++]=8;for(me(1,t.lens,0,288,Pe,0,t.work,{bits:9}),e=0;e<32;)t.lens[e++]=5;me(2,t.lens,0,32,Ye,0,t.work,{bits:5}),Ge=!1}t.lencode=Pe,t.lenbits=9,t.distcode=Ye,t.distbits=5},We=(t,e,a,i)=>{let n;const s=t.state;return null===s.window&&(s.wsize=1<<s.wbits,s.wnext=0,s.whave=0,s.window=new Uint8Array(s.wsize)),i>=s.wsize?(s.window.set(e.subarray(a-s.wsize,a),0),s.wnext=0,s.whave=s.wsize):(n=s.wsize-s.wnext,n>i&&(n=i),s.window.set(e.subarray(a-i,a-i+n),s.wnext),(i-=n)?(s.window.set(e.subarray(a-i,a),0),s.wnext=i,s.whave=s.wsize):(s.wnext+=n,s.wnext===s.wsize&&(s.wnext=0),s.whave<s.wsize&&(s.whave+=n))),0};var qe={inflateReset:He,inflateReset2:je,inflateResetKeep:Me,inflateInit:t=>Ke(t,15),inflateInit2:Ke,inflate:(t,e)=>{let a,i,n,s,r,o,l,h,d,_,f,c,u,w,m,b,g,p,k,v,y,x,z=0;const A=new Uint8Array(4);let E,R;const Z=new Uint8Array([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]);if(Ce(t)||!t.output||!t.input&&0!==t.avail_in)return xe;a=t.state,a.mode===Se&&(a.mode=De),r=t.next_out,n=t.output,l=t.avail_out,s=t.next_in,i=t.input,o=t.avail_in,h=a.hold,d=a.bits,_=o,f=l,x=ke;t:for(;;)switch(a.mode){case Ze:if(0===a.wrap){a.mode=De;break}for(;d<16;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if(2&a.wrap&&35615===h){0===a.wbits&&(a.wbits=15),a.check=0,A[0]=255&h,A[1]=h>>>8&255,a.check=H(a.check,A,2,0),h=0,d=0,a.mode=16181;break}if(a.head&&(a.head.done=!1),!(1&a.wrap)||(((255&h)<<8)+(h>>8))%31){t.msg="incorrect header check",a.mode=Le;break}if((15&h)!==Re){t.msg="unknown compression method",a.mode=Le;break}if(h>>>=4,d-=4,y=8+(15&h),0===a.wbits&&(a.wbits=y),y>15||y>a.wbits){t.msg="invalid window size",a.mode=Le;break}a.dmax=1<<a.wbits,a.flags=0,t.adler=a.check=1,a.mode=512&h?16189:Se,h=0,d=0;break;case 16181:for(;d<16;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if(a.flags=h,(255&a.flags)!==Re){t.msg="unknown compression method",a.mode=Le;break}if(57344&a.flags){t.msg="unknown header flags set",a.mode=Le;break}a.head&&(a.head.text=h>>8&1),512&a.flags&&4&a.wrap&&(A[0]=255&h,A[1]=h>>>8&255,a.check=H(a.check,A,2,0)),h=0,d=0,a.mode=16182;case 16182:for(;d<32;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}a.head&&(a.head.time=h),512&a.flags&&4&a.wrap&&(A[0]=255&h,A[1]=h>>>8&255,A[2]=h>>>16&255,A[3]=h>>>24&255,a.check=H(a.check,A,4,0)),h=0,d=0,a.mode=16183;case 16183:for(;d<16;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}a.head&&(a.head.xflags=255&h,a.head.os=h>>8),512&a.flags&&4&a.wrap&&(A[0]=255&h,A[1]=h>>>8&255,a.check=H(a.check,A,2,0)),h=0,d=0,a.mode=16184;case 16184:if(1024&a.flags){for(;d<16;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}a.length=h,a.head&&(a.head.extra_len=h),512&a.flags&&4&a.wrap&&(A[0]=255&h,A[1]=h>>>8&255,a.check=H(a.check,A,2,0)),h=0,d=0}else a.head&&(a.head.extra=null);a.mode=16185;case 16185:if(1024&a.flags&&(c=a.length,c>o&&(c=o),c&&(a.head&&(y=a.head.extra_len-a.length,a.head.extra||(a.head.extra=new Uint8Array(a.head.extra_len)),a.head.extra.set(i.subarray(s,s+c),y)),512&a.flags&&4&a.wrap&&(a.check=H(a.check,i,c,s)),o-=c,s+=c,a.length-=c),a.length))break t;a.length=0,a.mode=16186;case 16186:if(2048&a.flags){if(0===o)break t;c=0;do{y=i[s+c++],a.head&&y&&a.length<65536&&(a.head.name+=String.fromCharCode(y))}while(y&&c<o);if(512&a.flags&&4&a.wrap&&(a.check=H(a.check,i,c,s)),o-=c,s+=c,y)break t}else a.head&&(a.head.name=null);a.length=0,a.mode=16187;case 16187:if(4096&a.flags){if(0===o)break t;c=0;do{y=i[s+c++],a.head&&y&&a.length<65536&&(a.head.comment+=String.fromCharCode(y))}while(y&&c<o);if(512&a.flags&&4&a.wrap&&(a.check=H(a.check,i,c,s)),o-=c,s+=c,y)break t}else a.head&&(a.head.comment=null);a.mode=16188;case 16188:if(512&a.flags){for(;d<16;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if(4&a.wrap&&h!==(65535&a.check)){t.msg="header crc mismatch",a.mode=Le;break}h=0,d=0}a.head&&(a.head.hcrc=a.flags>>9&1,a.head.done=!0),t.adler=a.check=0,a.mode=Se;break;case 16189:for(;d<32;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}t.adler=a.check=Ne(h),h=0,d=0,a.mode=Ue;case Ue:if(0===a.havedict)return t.next_out=r,t.avail_out=l,t.next_in=s,t.avail_in=o,a.hold=h,a.bits=d,ye;t.adler=a.check=1,a.mode=Se;case Se:if(e===ge||e===pe)break t;case De:if(a.last){h>>>=7&d,d-=7&d,a.mode=Fe;break}for(;d<3;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}switch(a.last=1&h,h>>>=1,d-=1,3&h){case 0:a.mode=16193;break;case 1:if(Xe(a),a.mode=Oe,e===pe){h>>>=2,d-=2;break t}break;case 2:a.mode=16196;break;case 3:t.msg="invalid block type",a.mode=Le}h>>>=2,d-=2;break;case 16193:for(h>>>=7&d,d-=7&d;d<32;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if((65535&h)!=(h>>>16^65535)){t.msg="invalid stored block lengths",a.mode=Le;break}if(a.length=65535&h,h=0,d=0,a.mode=Te,e===pe)break t;case Te:a.mode=16195;case 16195:if(c=a.length,c){if(c>o&&(c=o),c>l&&(c=l),0===c)break t;n.set(i.subarray(s,s+c),r),o-=c,s+=c,l-=c,r+=c,a.length-=c;break}a.mode=Se;break;case 16196:for(;d<14;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if(a.nlen=257+(31&h),h>>>=5,d-=5,a.ndist=1+(31&h),h>>>=5,d-=5,a.ncode=4+(15&h),h>>>=4,d-=4,a.nlen>286||a.ndist>30){t.msg="too many length or distance symbols",a.mode=Le;break}a.have=0,a.mode=16197;case 16197:for(;a.have<a.ncode;){for(;d<3;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}a.lens[Z[a.have++]]=7&h,h>>>=3,d-=3}for(;a.have<19;)a.lens[Z[a.have++]]=0;if(a.lencode=a.lendyn,a.lenbits=7,E={bits:a.lenbits},x=me(0,a.lens,0,19,a.lencode,0,a.work,E),a.lenbits=E.bits,x){t.msg="invalid code lengths set",a.mode=Le;break}a.have=0,a.mode=16198;case 16198:for(;a.have<a.nlen+a.ndist;){for(;z=a.lencode[h&(1<<a.lenbits)-1],m=z>>>24,b=z>>>16&255,g=65535&z,!(m<=d);){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if(g<16)h>>>=m,d-=m,a.lens[a.have++]=g;else{if(16===g){for(R=m+2;d<R;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if(h>>>=m,d-=m,0===a.have){t.msg="invalid bit length repeat",a.mode=Le;break}y=a.lens[a.have-1],c=3+(3&h),h>>>=2,d-=2}else if(17===g){for(R=m+3;d<R;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}h>>>=m,d-=m,y=0,c=3+(7&h),h>>>=3,d-=3}else{for(R=m+7;d<R;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}h>>>=m,d-=m,y=0,c=11+(127&h),h>>>=7,d-=7}if(a.have+c>a.nlen+a.ndist){t.msg="invalid bit length repeat",a.mode=Le;break}for(;c--;)a.lens[a.have++]=y}}if(a.mode===Le)break;if(0===a.lens[256]){t.msg="invalid code -- missing end-of-block",a.mode=Le;break}if(a.lenbits=9,E={bits:a.lenbits},x=me(1,a.lens,0,a.nlen,a.lencode,0,a.work,E),a.lenbits=E.bits,x){t.msg="invalid literal/lengths set",a.mode=Le;break}if(a.distbits=6,a.distcode=a.distdyn,E={bits:a.distbits},x=me(2,a.lens,a.nlen,a.ndist,a.distcode,0,a.work,E),a.distbits=E.bits,x){t.msg="invalid distances set",a.mode=Le;break}if(a.mode=Oe,e===pe)break t;case Oe:a.mode=Ie;case Ie:if(o>=6&&l>=258){t.next_out=r,t.avail_out=l,t.next_in=s,t.avail_in=o,a.hold=h,a.bits=d,de(t,f),r=t.next_out,n=t.output,l=t.avail_out,s=t.next_in,i=t.input,o=t.avail_in,h=a.hold,d=a.bits,a.mode===Se&&(a.back=-1);break}for(a.back=0;z=a.lencode[h&(1<<a.lenbits)-1],m=z>>>24,b=z>>>16&255,g=65535&z,!(m<=d);){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if(b&&0==(240&b)){for(p=m,k=b,v=g;z=a.lencode[v+((h&(1<<p+k)-1)>>p)],m=z>>>24,b=z>>>16&255,g=65535&z,!(p+m<=d);){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}h>>>=p,d-=p,a.back+=p}if(h>>>=m,d-=m,a.back+=m,a.length=g,0===b){a.mode=16205;break}if(32&b){a.back=-1,a.mode=Se;break}if(64&b){t.msg="invalid literal/length code",a.mode=Le;break}a.extra=15&b,a.mode=16201;case 16201:if(a.extra){for(R=a.extra;d<R;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}a.length+=h&(1<<a.extra)-1,h>>>=a.extra,d-=a.extra,a.back+=a.extra}a.was=a.length,a.mode=16202;case 16202:for(;z=a.distcode[h&(1<<a.distbits)-1],m=z>>>24,b=z>>>16&255,g=65535&z,!(m<=d);){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if(0==(240&b)){for(p=m,k=b,v=g;z=a.distcode[v+((h&(1<<p+k)-1)>>p)],m=z>>>24,b=z>>>16&255,g=65535&z,!(p+m<=d);){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}h>>>=p,d-=p,a.back+=p}if(h>>>=m,d-=m,a.back+=m,64&b){t.msg="invalid distance code",a.mode=Le;break}a.offset=g,a.extra=15&b,a.mode=16203;case 16203:if(a.extra){for(R=a.extra;d<R;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}a.offset+=h&(1<<a.extra)-1,h>>>=a.extra,d-=a.extra,a.back+=a.extra}if(a.offset>a.dmax){t.msg="invalid distance too far back",a.mode=Le;break}a.mode=16204;case 16204:if(0===l)break t;if(c=f-l,a.offset>c){if(c=a.offset-c,c>a.whave&&a.sane){t.msg="invalid distance too far back",a.mode=Le;break}c>a.wnext?(c-=a.wnext,u=a.wsize-c):u=a.wnext-c,c>a.length&&(c=a.length),w=a.window}else w=n,u=r-a.offset,c=a.length;c>l&&(c=l),l-=c,a.length-=c;do{n[r++]=w[u++]}while(--c);0===a.length&&(a.mode=Ie);break;case 16205:if(0===l)break t;n[r++]=a.length,l--,a.mode=Ie;break;case Fe:if(a.wrap){for(;d<32;){if(0===o)break t;o--,h|=i[s++]<<d,d+=8}if(f-=l,t.total_out+=f,a.total+=f,4&a.wrap&&f&&(t.adler=a.check=a.flags?H(a.check,n,f,r-f):C(a.check,n,f,r-f)),f=l,4&a.wrap&&(a.flags?h:Ne(h))!==a.check){t.msg="incorrect data check",a.mode=Le;break}h=0,d=0}a.mode=16207;case 16207:if(a.wrap&&a.flags){for(;d<32;){if(0===o)break t;o--,h+=i[s++]<<d,d+=8}if(4&a.wrap&&h!==(4294967295&a.total)){t.msg="incorrect length check",a.mode=Le;break}h=0,d=0}a.mode=16208;case 16208:x=ve;break t;case Le:x=ze;break t;case 16210:return Ae;default:return xe}return t.next_out=r,t.avail_out=l,t.next_in=s,t.avail_in=o,a.hold=h,a.bits=d,(a.wsize||f!==t.avail_out&&a.mode<Le&&(a.mode<Fe||e!==be))&&We(t,t.output,t.next_out,f-t.avail_out),_-=t.avail_in,f-=t.avail_out,t.total_in+=_,t.total_out+=f,a.total+=f,4&a.wrap&&f&&(t.adler=a.check=a.flags?H(a.check,n,f,t.next_out-f):C(a.check,n,f,t.next_out-f)),t.data_type=a.bits+(a.last?64:0)+(a.mode===Se?128:0)+(a.mode===Oe||a.mode===Te?256:0),(0===_&&0===f||e===be)&&x===ke&&(x=Ee),x},inflateEnd:t=>{if(Ce(t))return xe;let e=t.state;return e.window&&(e.window=null),t.state=null,ke},inflateGetHeader:(t,e)=>{if(Ce(t))return xe;const a=t.state;return 0==(2&a.wrap)?xe:(a.head=e,e.done=!1,ke)},inflateSetDictionary:(t,e)=>{const a=e.length;let i,n,s;return Ce(t)?xe:(i=t.state,0!==i.wrap&&i.mode!==Ue?xe:i.mode===Ue&&(n=1,n=C(n,e,a,0),n!==i.check)?ze:(s=We(t,e,a,a),s?(i.mode=16210,Ae):(i.havedict=1,ke)))},inflateInfo:"pako inflate (from Nodeca project)"};var Je=function(){this.text=0,this.time=0,this.xflags=0,this.os=0,this.extra=null,this.extra_len=0,this.name="",this.comment="",this.hcrc=0,this.done=!1};const Qe=Object.prototype.toString,{Z_NO_FLUSH:Ve,Z_FINISH:$e,Z_OK:ta,Z_STREAM_END:ea,Z_NEED_DICT:aa,Z_STREAM_ERROR:ia,Z_DATA_ERROR:na,Z_MEM_ERROR:sa}=K;function ra(t){this.options=jt({chunkSize:65536,windowBits:15,to:""},t||{});const e=this.options;e.raw&&e.windowBits>=0&&e.windowBits<16&&(e.windowBits=-e.windowBits,0===e.windowBits&&(e.windowBits=-15)),!(e.windowBits>=0&&e.windowBits<16)||t&&t.windowBits||(e.windowBits+=32),e.windowBits>15&&e.windowBits<48&&0==(15&e.windowBits)&&(e.windowBits|=15),this.err=0,this.msg="",this.ended=!1,this.chunks=[],this.strm=new qt,this.strm.avail_out=0;let a=qe.inflateInit2(this.strm,e.windowBits);if(a!==ta)throw new Error(j[a]);if(this.header=new Je,qe.inflateGetHeader(this.strm,this.header),e.dictionary&&("string"==typeof e.dictionary?e.dictionary=Gt(e.dictionary):"[object ArrayBuffer]"===Qe.call(e.dictionary)&&(e.dictionary=new Uint8Array(e.dictionary)),e.raw&&(a=qe.inflateSetDictionary(this.strm,e.dictionary),a!==ta)))throw new Error(j[a])}function oa(t,e){const a=new ra(e);if(a.push(t),a.err)throw a.msg||j[a.err];return a.result}ra.prototype.push=function(t,e){const a=this.strm,i=this.options.chunkSize,n=this.options.dictionary;let s,r,o;if(this.ended)return!1;for(r=e===~~e?e:!0===e?$e:Ve,"[object ArrayBuffer]"===Qe.call(t)?a.input=new Uint8Array(t):a.input=t,a.next_in=0,a.avail_in=a.input.length;;){for(0===a.avail_out&&(a.output=new Uint8Array(i),a.next_out=0,a.avail_out=i),s=qe.inflate(a,r),s===aa&&n&&(s=qe.inflateSetDictionary(a,n),s===ta?s=qe.inflate(a,r):s===na&&(s=aa));a.avail_in>0&&s===ea&&a.state.wrap>0&&0!==t[a.next_in];)qe.inflateReset(a),s=qe.inflate(a,r);switch(s){case ia:case na:case aa:case sa:return this.onEnd(s),this.ended=!0,!1}if(o=a.avail_out,a.next_out&&(0===a.avail_out||s===ea))if("string"===this.options.to){let t=Wt(a.output,a.next_out),e=a.next_out-t,n=Xt(a.output,t);a.next_out=e,a.avail_out=i-e,e&&a.output.set(a.output.subarray(t,t+e),0),this.onData(n)}else this.onData(a.output.length===a.next_out?a.output:a.output.subarray(0,a.next_out));if(s!==ta||0!==o){if(s===ea)return s=qe.inflateEnd(this.strm),this.onEnd(s),this.ended=!0,!0;if(0===a.avail_in)break}}return!0},ra.prototype.onData=function(t){this.chunks.push(t)},ra.prototype.onEnd=function(t){t===ta&&("string"===this.options.to?this.result=this.chunks.join(""):this.result=Kt(this.chunks)),this.chunks=[],this.err=t,this.msg=this.strm.msg};var la={Inflate:ra,inflate:oa,inflateRaw:function(t,e){return(e=e||{}).raw=!0,oa(t,e)},ungzip:oa,constants:K};const{Deflate:ha,deflate:da,deflateRaw:_a,gzip:fa}=le,{Inflate:ca,inflate:ua,inflateRaw:wa,ungzip:ma}=la;var ba=ha,ga=da,pa=_a,ka=fa,va=ca,ya=ua,xa=wa,za=ma,Aa=K,Ea={Deflate:ba,deflate:ga,deflateRaw:pa,gzip:ka,Inflate:va,inflate:ya,inflateRaw:xa,ungzip:za,constants:Aa};t.Deflate=ba,t.Inflate=va,t.constants=Aa,t.default=Ea,t.deflate=ga,t.deflateRaw=pa,t.gzip=ka,t.inflate=ya,t.inflateRaw=xa,t.ungzip=za,Object.defineProperty(t,"__esModule",{value:!0})}));
+</script>
+<script>
+/* tweetnacl-js 1.0.3 — https://github.com/dchest/tweetnacl-js — public domain */
+!function(i){"use strict";var m=function(r,n){this.hi=0|r,this.lo=0|n},v=function(r){var n,e=new Float64Array(16);if(r)for(n=0;n<r.length;n++)e[n]=r[n];return e},a=function(){throw new Error("no PRNG")},o=new Uint8Array(16),e=new Uint8Array(32);e[0]=9;var c=v(),w=v([1]),g=v([56129,1]),y=v([30883,4953,19914,30187,55467,16705,2637,112,59544,30585,16505,36039,65139,11119,27886,20995]),l=v([61785,9906,39828,60374,45398,33411,5274,224,53552,61171,33010,6542,64743,22239,55772,9222]),t=v([54554,36645,11616,51542,42930,38181,51040,26924,56412,64982,57905,49316,21502,52590,14035,8553]),f=v([26200,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214,26214]),s=v([41136,18958,6951,50414,58488,44335,6150,12099,55207,15867,153,11085,57099,20417,9344,11139]);function h(r,n){return r<<n|r>>>32-n}function b(r,n){var e=255&r[n+3];return(e=(e=e<<8|255&r[n+2])<<8|255&r[n+1])<<8|255&r[n+0]}function B(r,n){var e=r[n]<<24|r[n+1]<<16|r[n+2]<<8|r[n+3],t=r[n+4]<<24|r[n+5]<<16|r[n+6]<<8|r[n+7];return new m(e,t)}function p(r,n,e){var t;for(t=0;t<4;t++)r[n+t]=255&e,e>>>=8}function S(r,n,e){r[n]=e.hi>>24&255,r[n+1]=e.hi>>16&255,r[n+2]=e.hi>>8&255,r[n+3]=255&e.hi,r[n+4]=e.lo>>24&255,r[n+5]=e.lo>>16&255,r[n+6]=e.lo>>8&255,r[n+7]=255&e.lo}function u(r,n,e,t,o){var i,a=0;for(i=0;i<o;i++)a|=r[n+i]^e[t+i];return(1&a-1>>>8)-1}function A(r,n,e,t){return u(r,n,e,t,16)}function _(r,n,e,t){return u(r,n,e,t,32)}function U(r,n,e,t,o){var i,a,f,u=new Uint32Array(16),c=new Uint32Array(16),w=new Uint32Array(16),y=new Uint32Array(4);for(i=0;i<4;i++)c[5*i]=b(t,4*i),c[1+i]=b(e,4*i),c[6+i]=b(n,4*i),c[11+i]=b(e,16+4*i);for(i=0;i<16;i++)w[i]=c[i];for(i=0;i<20;i++){for(a=0;a<4;a++){for(f=0;f<4;f++)y[f]=c[(5*a+4*f)%16];for(y[1]^=h(y[0]+y[3]|0,7),y[2]^=h(y[1]+y[0]|0,9),y[3]^=h(y[2]+y[1]|0,13),y[0]^=h(y[3]+y[2]|0,18),f=0;f<4;f++)u[4*a+(a+f)%4]=y[f]}for(f=0;f<16;f++)c[f]=u[f]}if(o){for(i=0;i<16;i++)c[i]=c[i]+w[i]|0;for(i=0;i<4;i++)c[5*i]=c[5*i]-b(t,4*i)|0,c[6+i]=c[6+i]-b(n,4*i)|0;for(i=0;i<4;i++)p(r,4*i,c[5*i]),p(r,16+4*i,c[6+i])}else for(i=0;i<16;i++)p(r,4*i,c[i]+w[i]|0)}function E(r,n,e,t){U(r,n,e,t,!1)}function x(r,n,e,t){return U(r,n,e,t,!0),0}var d=new Uint8Array([101,120,112,97,110,100,32,51,50,45,98,121,116,101,32,107]);function K(r,n,e,t,o,i,a){var f,u,c=new Uint8Array(16),w=new Uint8Array(64);if(!o)return 0;for(u=0;u<16;u++)c[u]=0;for(u=0;u<8;u++)c[u]=i[u];for(;64<=o;){for(E(w,c,a,d),u=0;u<64;u++)r[n+u]=(e?e[t+u]:0)^w[u];for(f=1,u=8;u<16;u++)f=f+(255&c[u])|0,c[u]=255&f,f>>>=8;o-=64,n+=64,e&&(t+=64)}if(0<o)for(E(w,c,a,d),u=0;u<o;u++)r[n+u]=(e?e[t+u]:0)^w[u];return 0}function Y(r,n,e,t,o){return K(r,n,null,0,e,t,o)}function L(r,n,e,t,o){var i=new Uint8Array(32);return x(i,t,o,d),Y(r,n,e,t.subarray(16),i)}function T(r,n,e,t,o,i,a){var f=new Uint8Array(32);return x(f,i,a,d),K(r,n,e,t,o,i.subarray(16),f)}function k(r,n){var e,t=0;for(e=0;e<17;e++)t=t+(r[e]+n[e]|0)|0,r[e]=255&t,t>>>=8}var z=new Uint32Array([5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,252]);function R(r,n,e,t,o,i){var a,f,u,c,w=new Uint32Array(17),y=new Uint32Array(17),l=new Uint32Array(17),s=new Uint32Array(17),h=new Uint32Array(17);for(u=0;u<17;u++)y[u]=l[u]=0;for(u=0;u<16;u++)y[u]=i[u];for(y[3]&=15,y[4]&=252,y[7]&=15,y[8]&=252,y[11]&=15,y[12]&=252,y[15]&=15;0<o;){for(u=0;u<17;u++)s[u]=0;for(u=0;u<16&&u<o;++u)s[u]=e[t+u];for(s[u]=1,t+=u,o-=u,k(l,s),f=0;f<17;f++)for(u=w[f]=0;u<17;u++)w[f]=w[f]+l[u]*(u<=f?y[f-u]:320*y[f+17-u]|0)|0;for(f=0;f<17;f++)l[f]=w[f];for(u=c=0;u<16;u++)c=c+l[u]|0,l[u]=255&c,c>>>=8;for(c=c+l[16]|0,l[16]=3&c,c=5*(c>>>2)|0,u=0;u<16;u++)c=c+l[u]|0,l[u]=255&c,c>>>=8;c=c+l[16]|0,l[16]=c}for(u=0;u<17;u++)h[u]=l[u];for(k(l,z),a=0|-(l[16]>>>7),u=0;u<17;u++)l[u]^=a&(h[u]^l[u]);for(u=0;u<16;u++)s[u]=i[u+16];for(s[16]=0,k(l,s),u=0;u<16;u++)r[n+u]=l[u];return 0}function P(r,n,e,t,o,i){var a=new Uint8Array(16);return R(a,0,e,t,o,i),A(r,n,a,0)}function M(r,n,e,t,o){var i;if(e<32)return-1;for(T(r,0,n,0,e,t,o),R(r,16,r,32,e-32,r),i=0;i<16;i++)r[i]=0;return 0}function N(r,n,e,t,o){var i,a=new Uint8Array(32);if(e<32)return-1;if(L(a,0,32,t,o),0!==P(n,16,n,32,e-32,a))return-1;for(T(r,0,n,0,e,t,o),i=0;i<32;i++)r[i]=0;return 0}function O(r,n){var e;for(e=0;e<16;e++)r[e]=0|n[e]}function C(r){var n,e;for(e=0;e<16;e++)r[e]+=65536,n=Math.floor(r[e]/65536),r[(e+1)*(e<15?1:0)]+=n-1+37*(n-1)*(15===e?1:0),r[e]-=65536*n}function F(r,n,e){for(var t,o=~(e-1),i=0;i<16;i++)t=o&(r[i]^n[i]),r[i]^=t,n[i]^=t}function Z(r,n){var e,t,o,i=v(),a=v();for(e=0;e<16;e++)a[e]=n[e];for(C(a),C(a),C(a),t=0;t<2;t++){for(i[0]=a[0]-65517,e=1;e<15;e++)i[e]=a[e]-65535-(i[e-1]>>16&1),i[e-1]&=65535;i[15]=a[15]-32767-(i[14]>>16&1),o=i[15]>>16&1,i[14]&=65535,F(a,i,1-o)}for(e=0;e<16;e++)r[2*e]=255&a[e],r[2*e+1]=a[e]>>8}function G(r,n){var e=new Uint8Array(32),t=new Uint8Array(32);return Z(e,r),Z(t,n),_(e,0,t,0)}function q(r){var n=new Uint8Array(32);return Z(n,r),1&n[0]}function D(r,n){var e;for(e=0;e<16;e++)r[e]=n[2*e]+(n[2*e+1]<<8);r[15]&=32767}function I(r,n,e){var t;for(t=0;t<16;t++)r[t]=n[t]+e[t]|0}function V(r,n,e){var t;for(t=0;t<16;t++)r[t]=n[t]-e[t]|0}function X(r,n,e){var t,o,i=new Float64Array(31);for(t=0;t<31;t++)i[t]=0;for(t=0;t<16;t++)for(o=0;o<16;o++)i[t+o]+=n[t]*e[o];for(t=0;t<15;t++)i[t]+=38*i[t+16];for(t=0;t<16;t++)r[t]=i[t];C(r),C(r)}function j(r,n){X(r,n,n)}function H(r,n){var e,t=v();for(e=0;e<16;e++)t[e]=n[e];for(e=253;0<=e;e--)j(t,t),2!==e&&4!==e&&X(t,t,n);for(e=0;e<16;e++)r[e]=t[e]}function J(r,n){var e,t=v();for(e=0;e<16;e++)t[e]=n[e];for(e=250;0<=e;e--)j(t,t),1!==e&&X(t,t,n);for(e=0;e<16;e++)r[e]=t[e]}function Q(r,n,e){var t,o,i=new Uint8Array(32),a=new Float64Array(80),f=v(),u=v(),c=v(),w=v(),y=v(),l=v();for(o=0;o<31;o++)i[o]=n[o];for(i[31]=127&n[31]|64,i[0]&=248,D(a,e),o=0;o<16;o++)u[o]=a[o],w[o]=f[o]=c[o]=0;for(f[0]=w[0]=1,o=254;0<=o;--o)F(f,u,t=i[o>>>3]>>>(7&o)&1),F(c,w,t),I(y,f,c),V(f,f,c),I(c,u,w),V(u,u,w),j(w,y),j(l,f),X(f,c,f),X(c,u,y),I(y,f,c),V(f,f,c),j(u,f),V(c,w,l),X(f,c,g),I(f,f,w),X(c,c,f),X(f,w,l),X(w,u,a),j(u,y),F(f,u,t),F(c,w,t);for(o=0;o<16;o++)a[o+16]=f[o],a[o+32]=c[o],a[o+48]=u[o],a[o+64]=w[o];var s=a.subarray(32),h=a.subarray(16);return H(s,s),X(h,h,s),Z(r,h),0}function W(r,n){return Q(r,n,e)}function $(r,n){return a(n,32),W(r,n)}function rr(r,n,e){var t=new Uint8Array(32);return Q(t,e,n),x(r,o,t,d)}var nr=M,er=N;function tr(){var r,n,e,t=0,o=0,i=0,a=0,f=65535;for(e=0;e<arguments.length;e++)t+=(r=arguments[e].lo)&f,o+=r>>>16,i+=(n=arguments[e].hi)&f,a+=n>>>16;return new m((i+=(o+=t>>>16)>>>16)&f|(a+=i>>>16)<<16,t&f|o<<16)}function or(r,n){return new m(r.hi>>>n,r.lo>>>n|r.hi<<32-n)}function ir(){var r,n=0,e=0;for(r=0;r<arguments.length;r++)n^=arguments[r].lo,e^=arguments[r].hi;return new m(e,n)}function ar(r,n){var e,t,o=32-n;return n<32?(e=r.hi>>>n|r.lo<<o,t=r.lo>>>n|r.hi<<o):n<64&&(e=r.lo>>>n|r.hi<<o,t=r.hi>>>n|r.lo<<o),new m(e,t)}var fr=[new m(1116352408,3609767458),new m(1899447441,602891725),new m(3049323471,3964484399),new m(3921009573,2173295548),new m(961987163,4081628472),new m(1508970993,3053834265),new m(2453635748,2937671579),new m(2870763221,3664609560),new m(3624381080,2734883394),new m(310598401,1164996542),new m(607225278,1323610764),new m(1426881987,3590304994),new m(1925078388,4068182383),new m(2162078206,991336113),new m(2614888103,633803317),new m(3248222580,3479774868),new m(3835390401,2666613458),new m(4022224774,944711139),new m(264347078,2341262773),new m(604807628,2007800933),new m(770255983,1495990901),new m(1249150122,1856431235),new m(1555081692,3175218132),new m(1996064986,2198950837),new m(2554220882,3999719339),new m(2821834349,766784016),new m(2952996808,2566594879),new m(3210313671,3203337956),new m(3336571891,1034457026),new m(3584528711,2466948901),new m(113926993,3758326383),new m(338241895,168717936),new m(666307205,1188179964),new m(773529912,1546045734),new m(1294757372,1522805485),new m(1396182291,2643833823),new m(1695183700,2343527390),new m(1986661051,1014477480),new m(2177026350,1206759142),new m(2456956037,344077627),new m(2730485921,1290863460),new m(2820302411,3158454273),new m(3259730800,3505952657),new m(3345764771,106217008),new m(3516065817,3606008344),new m(3600352804,1432725776),new m(4094571909,1467031594),new m(275423344,851169720),new m(430227734,3100823752),new m(506948616,1363258195),new m(659060556,3750685593),new m(883997877,3785050280),new m(958139571,3318307427),new m(1322822218,3812723403),new m(1537002063,2003034995),new m(1747873779,3602036899),new m(1955562222,1575990012),new m(2024104815,1125592928),new m(2227730452,2716904306),new m(2361852424,442776044),new m(2428436474,593698344),new m(2756734187,3733110249),new m(3204031479,2999351573),new m(3329325298,3815920427),new m(3391569614,3928383900),new m(3515267271,566280711),new m(3940187606,3454069534),new m(4118630271,4000239992),new m(116418474,1914138554),new m(174292421,2731055270),new m(289380356,3203993006),new m(460393269,320620315),new m(685471733,587496836),new m(852142971,1086792851),new m(1017036298,365543100),new m(1126000580,2618297676),new m(1288033470,3409855158),new m(1501505948,4234509866),new m(1607167915,987167468),new m(1816402316,1246189591)];function ur(r,n,e){var t,o,i,a=[],f=[],u=[],c=[];for(o=0;o<8;o++)a[o]=u[o]=B(r,8*o);for(var w,y,l,s,h,v,g,b,p,A,_,U,E,x,d=0;128<=e;){for(o=0;o<16;o++)c[o]=B(n,8*o+d);for(o=0;o<80;o++){for(i=0;i<8;i++)f[i]=u[i];for(t=tr(u[7],ir(ar(x=u[4],14),ar(x,18),ar(x,41)),(p=u[4],A=u[5],_=u[6],0,U=p.hi&A.hi^~p.hi&_.hi,E=p.lo&A.lo^~p.lo&_.lo,new m(U,E)),fr[o],c[o%16]),f[7]=tr(t,ir(ar(b=u[0],28),ar(b,34),ar(b,39)),(l=u[0],s=u[1],h=u[2],0,v=l.hi&s.hi^l.hi&h.hi^s.hi&h.hi,g=l.lo&s.lo^l.lo&h.lo^s.lo&h.lo,new m(v,g))),f[3]=tr(f[3],t),i=0;i<8;i++)u[(i+1)%8]=f[i];if(o%16==15)for(i=0;i<16;i++)c[i]=tr(c[i],c[(i+9)%16],ir(ar(y=c[(i+1)%16],1),ar(y,8),or(y,7)),ir(ar(w=c[(i+14)%16],19),ar(w,61),or(w,6)))}for(o=0;o<8;o++)u[o]=tr(u[o],a[o]),a[o]=u[o];d+=128,e-=128}for(o=0;o<8;o++)S(r,8*o,a[o]);return e}var cr=new Uint8Array([106,9,230,103,243,188,201,8,187,103,174,133,132,202,167,59,60,110,243,114,254,148,248,43,165,79,245,58,95,29,54,241,81,14,82,127,173,230,130,209,155,5,104,140,43,62,108,31,31,131,217,171,251,65,189,107,91,224,205,25,19,126,33,121]);function wr(r,n,e){var t,o=new Uint8Array(64),i=new Uint8Array(256),a=e;for(t=0;t<64;t++)o[t]=cr[t];for(ur(o,n,e),e%=128,t=0;t<256;t++)i[t]=0;for(t=0;t<e;t++)i[t]=n[a-e+t];for(i[e]=128,i[(e=256-128*(e<112?1:0))-9]=0,S(i,e-8,new m(a/536870912|0,a<<3)),ur(o,i,e),t=0;t<64;t++)r[t]=o[t];return 0}function yr(r,n){var e=v(),t=v(),o=v(),i=v(),a=v(),f=v(),u=v(),c=v(),w=v();V(e,r[1],r[0]),V(w,n[1],n[0]),X(e,e,w),I(t,r[0],r[1]),I(w,n[0],n[1]),X(t,t,w),X(o,r[3],n[3]),X(o,o,l),X(i,r[2],n[2]),I(i,i,i),V(a,t,e),V(f,i,o),I(u,i,o),I(c,t,e),X(r[0],a,f),X(r[1],c,u),X(r[2],u,f),X(r[3],a,c)}function lr(r,n,e){var t;for(t=0;t<4;t++)F(r[t],n[t],e)}function sr(r,n){var e=v(),t=v(),o=v();H(o,n[2]),X(e,n[0],o),X(t,n[1],o),Z(r,t),r[31]^=q(e)<<7}function hr(r,n,e){var t,o;for(O(r[0],c),O(r[1],w),O(r[2],w),O(r[3],c),o=255;0<=o;--o)lr(r,n,t=e[o/8|0]>>(7&o)&1),yr(n,r),yr(r,r),lr(r,n,t)}function vr(r,n){var e=[v(),v(),v(),v()];O(e[0],t),O(e[1],f),O(e[2],w),X(e[3],t,f),hr(r,e,n)}function gr(r,n,e){var t,o=new Uint8Array(64),i=[v(),v(),v(),v()];for(e||a(n,32),wr(o,n,32),o[0]&=248,o[31]&=127,o[31]|=64,vr(i,o),sr(r,i),t=0;t<32;t++)n[t+32]=r[t];return 0}var br=new Float64Array([237,211,245,92,26,99,18,88,214,156,247,162,222,249,222,20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,16]);function pr(r,n){var e,t,o,i;for(t=63;32<=t;--t){for(e=0,o=t-32,i=t-12;o<i;++o)n[o]+=e-16*n[t]*br[o-(t-32)],e=Math.floor((n[o]+128)/256),n[o]-=256*e;n[o]+=e,n[t]=0}for(o=e=0;o<32;o++)n[o]+=e-(n[31]>>4)*br[o],e=n[o]>>8,n[o]&=255;for(o=0;o<32;o++)n[o]-=e*br[o];for(t=0;t<32;t++)n[t+1]+=n[t]>>8,r[t]=255&n[t]}function Ar(r){var n,e=new Float64Array(64);for(n=0;n<64;n++)e[n]=r[n];for(n=0;n<64;n++)r[n]=0;pr(r,e)}function _r(r,n,e,t){var o,i,a=new Uint8Array(64),f=new Uint8Array(64),u=new Uint8Array(64),c=new Float64Array(64),w=[v(),v(),v(),v()];wr(a,t,32),a[0]&=248,a[31]&=127,a[31]|=64;var y=e+64;for(o=0;o<e;o++)r[64+o]=n[o];for(o=0;o<32;o++)r[32+o]=a[32+o];for(wr(u,r.subarray(32),e+32),Ar(u),vr(w,u),sr(r,w),o=32;o<64;o++)r[o]=t[o];for(wr(f,r,e+64),Ar(f),o=0;o<64;o++)c[o]=0;for(o=0;o<32;o++)c[o]=u[o];for(o=0;o<32;o++)for(i=0;i<32;i++)c[o+i]+=f[o]*a[i];return pr(r.subarray(32),c),y}function Ur(r,n,e,t){var o,i=new Uint8Array(32),a=new Uint8Array(64),f=[v(),v(),v(),v()],u=[v(),v(),v(),v()];if(e<64)return-1;if(function(r,n){var e=v(),t=v(),o=v(),i=v(),a=v(),f=v(),u=v();if(O(r[2],w),D(r[1],n),j(o,r[1]),X(i,o,y),V(o,o,r[2]),I(i,r[2],i),j(a,i),j(f,a),X(u,f,a),X(e,u,o),X(e,e,i),J(e,e),X(e,e,o),X(e,e,i),X(e,e,i),X(r[0],e,i),j(t,r[0]),X(t,t,i),G(t,o)&&X(r[0],r[0],s),j(t,r[0]),X(t,t,i),G(t,o))return 1;q(r[0])===n[31]>>7&&V(r[0],c,r[0]),X(r[3],r[0],r[1])}(u,t))return-1;for(o=0;o<e;o++)r[o]=n[o];for(o=0;o<32;o++)r[o+32]=t[o];if(wr(a,r,e),Ar(a),hr(f,u,a),vr(u,n.subarray(32)),yr(f,u),sr(i,f),e-=64,_(n,0,i,0)){for(o=0;o<e;o++)r[o]=0;return-1}for(o=0;o<e;o++)r[o]=n[o+64];return e}function Er(r,n){if(32!==r.length)throw new Error("bad key size");if(24!==n.length)throw new Error("bad nonce size")}function xr(){for(var r=0;r<arguments.length;r++)if(!(arguments[r]instanceof Uint8Array))throw new TypeError("unexpected type, use Uint8Array")}function dr(r){for(var n=0;n<r.length;n++)r[n]=0}i.lowlevel={crypto_core_hsalsa20:x,crypto_stream_xor:T,crypto_stream:L,crypto_stream_salsa20_xor:K,crypto_stream_salsa20:Y,crypto_onetimeauth:R,crypto_onetimeauth_verify:P,crypto_verify_16:A,crypto_verify_32:_,crypto_secretbox:M,crypto_secretbox_open:N,crypto_scalarmult:Q,crypto_scalarmult_base:W,crypto_box_beforenm:rr,crypto_box_afternm:nr,crypto_box:function(r,n,e,t,o,i){var a=new Uint8Array(32);return rr(a,o,i),nr(r,n,e,t,a)},crypto_box_open:function(r,n,e,t,o,i){var a=new Uint8Array(32);return rr(a,o,i),er(r,n,e,t,a)},crypto_box_keypair:$,crypto_hash:wr,crypto_sign:_r,crypto_sign_keypair:gr,crypto_sign_open:Ur,crypto_secretbox_KEYBYTES:32,crypto_secretbox_NONCEBYTES:24,crypto_secretbox_ZEROBYTES:32,crypto_secretbox_BOXZEROBYTES:16,crypto_scalarmult_BYTES:32,crypto_scalarmult_SCALARBYTES:32,crypto_box_PUBLICKEYBYTES:32,crypto_box_SECRETKEYBYTES:32,crypto_box_BEFORENMBYTES:32,crypto_box_NONCEBYTES:24,crypto_box_ZEROBYTES:32,crypto_box_BOXZEROBYTES:16,crypto_sign_BYTES:64,crypto_sign_PUBLICKEYBYTES:32,crypto_sign_SECRETKEYBYTES:64,crypto_sign_SEEDBYTES:32,crypto_hash_BYTES:64,gf:v,D:y,L:br,pack25519:Z,unpack25519:D,M:X,A:I,S:j,Z:V,pow2523:J,add:yr,set25519:O,modL:pr,scalarmult:hr,scalarbase:vr},i.randomBytes=function(r){var n=new Uint8Array(r);return a(n,r),n},i.secretbox=function(r,n,e){xr(r,n,e),Er(e,n);for(var t=new Uint8Array(32+r.length),o=new Uint8Array(t.length),i=0;i<r.length;i++)t[i+32]=r[i];return M(o,t,t.length,n,e),o.subarray(16)},i.secretbox.open=function(r,n,e){xr(r,n,e),Er(e,n);for(var t=new Uint8Array(16+r.length),o=new Uint8Array(t.length),i=0;i<r.length;i++)t[i+16]=r[i];return t.length<32||0!==N(o,t,t.length,n,e)?null:o.subarray(32)},i.secretbox.keyLength=32,i.secretbox.nonceLength=24,i.secretbox.overheadLength=16,i.scalarMult=function(r,n){if(xr(r,n),32!==r.length)throw new Error("bad n size");if(32!==n.length)throw new Error("bad p size");var e=new Uint8Array(32);return Q(e,r,n),e},i.scalarMult.base=function(r){if(xr(r),32!==r.length)throw new Error("bad n size");var n=new Uint8Array(32);return W(n,r),n},i.scalarMult.scalarLength=32,i.scalarMult.groupElementLength=32,i.box=function(r,n,e,t){var o=i.box.before(e,t);return i.secretbox(r,n,o)},i.box.before=function(r,n){xr(r,n),function(r,n){if(32!==r.length)throw new Error("bad public key size");if(32!==n.length)throw new Error("bad secret key size")}(r,n);var e=new Uint8Array(32);return rr(e,r,n),e},i.box.after=i.secretbox,i.box.open=function(r,n,e,t){var o=i.box.before(e,t);return i.secretbox.open(r,n,o)},i.box.open.after=i.secretbox.open,i.box.keyPair=function(){var r=new Uint8Array(32),n=new Uint8Array(32);return $(r,n),{publicKey:r,secretKey:n}},i.box.keyPair.fromSecretKey=function(r){if(xr(r),32!==r.length)throw new Error("bad secret key size");var n=new Uint8Array(32);return W(n,r),{publicKey:n,secretKey:new Uint8Array(r)}},i.box.publicKeyLength=32,i.box.secretKeyLength=32,i.box.sharedKeyLength=32,i.box.nonceLength=24,i.box.overheadLength=i.secretbox.overheadLength,i.sign=function(r,n){if(xr(r,n),64!==n.length)throw new Error("bad secret key size");var e=new Uint8Array(64+r.length);return _r(e,r,r.length,n),e},i.sign.open=function(r,n){if(xr(r,n),32!==n.length)throw new Error("bad public key size");var e=new Uint8Array(r.length),t=Ur(e,r,r.length,n);if(t<0)return null;for(var o=new Uint8Array(t),i=0;i<o.length;i++)o[i]=e[i];return o},i.sign.detached=function(r,n){for(var e=i.sign(r,n),t=new Uint8Array(64),o=0;o<t.length;o++)t[o]=e[o];return t},i.sign.detached.verify=function(r,n,e){if(xr(r,n,e),64!==n.length)throw new Error("bad signature size");if(32!==e.length)throw new Error("bad public key size");var t,o=new Uint8Array(64+r.length),i=new Uint8Array(64+r.length);for(t=0;t<64;t++)o[t]=n[t];for(t=0;t<r.length;t++)o[t+64]=r[t];return 0<=Ur(i,o,o.length,e)},i.sign.keyPair=function(){var r=new Uint8Array(32),n=new Uint8Array(64);return gr(r,n),{publicKey:r,secretKey:n}},i.sign.keyPair.fromSecretKey=function(r){if(xr(r),64!==r.length)throw new Error("bad secret key size");for(var n=new Uint8Array(32),e=0;e<n.length;e++)n[e]=r[32+e];return{publicKey:n,secretKey:new Uint8Array(r)}},i.sign.keyPair.fromSeed=function(r){if(xr(r),32!==r.length)throw new Error("bad seed size");for(var n=new Uint8Array(32),e=new Uint8Array(64),t=0;t<32;t++)e[t]=r[t];return gr(n,e,!0),{publicKey:n,secretKey:e}},i.sign.publicKeyLength=32,i.sign.secretKeyLength=64,i.sign.seedLength=32,i.sign.signatureLength=64,i.hash=function(r){xr(r);var n=new Uint8Array(64);return wr(n,r,r.length),n},i.hash.hashLength=64,i.verify=function(r,n){return xr(r,n),0!==r.length&&0!==n.length&&(r.length===n.length&&0===u(r,0,n,0,r.length))},i.setPRNG=function(r){a=r},function(){var o="undefined"!=typeof self?self.crypto||self.msCrypto:null;if(o&&o.getRandomValues){i.setPRNG(function(r,n){var e,t=new Uint8Array(n);for(e=0;e<n;e+=65536)o.getRandomValues(t.subarray(e,e+Math.min(n-e,65536)));for(e=0;e<n;e++)r[e]=t[e];dr(t)})}else"undefined"!=typeof require&&(o=require("crypto"))&&o.randomBytes&&i.setPRNG(function(r,n){var e,t=o.randomBytes(n);for(e=0;e<n;e++)r[e]=t[e];dr(t)})}()}("undefined"!=typeof module&&module.exports?module.exports:self.nacl=self.nacl||{});
+</script>
+
+<script type="module">
+// ============================================================
+// Inline msgpack (minimal subset — arrays, strings, bytes, bool)
+// ============================================================
+const msgpack = (() => {
+  function encode(value) {
+    const parts = [];
+    encodeValue(value, parts);
+    const len = parts.reduce((a,b) => a + b.length, 0);
+    const out = new Uint8Array(len);
+    let off = 0;
+    for (const p of parts) { out.set(p, off); off += p.length; }
+    return out;
+  }
+
+  function encodeValue(v, parts) {
+    if (v === null || v === undefined) { parts.push(new Uint8Array([0xc0])); return; }
+    if (v === false) { parts.push(new Uint8Array([0xc2])); return; }
+    if (v === true)  { parts.push(new Uint8Array([0xc3])); return; }
+    if (typeof v === 'string') {
+      const b = new TextEncoder().encode(v);
+      if (b.length < 32) {
+        parts.push(new Uint8Array([0xa0 | b.length])); parts.push(b);
+      } else if (b.length < 256) {
+        parts.push(new Uint8Array([0xd9, b.length])); parts.push(b);
+      } else {
+        const h = new Uint8Array([0xda, b.length >> 8, b.length & 0xff]);
+        parts.push(h); parts.push(b);
+      }
+      return;
+    }
+    if (v instanceof Uint8Array || v instanceof ArrayBuffer) {
+      const b = v instanceof ArrayBuffer ? new Uint8Array(v) : v;
+      if (b.length < 256) {
+        parts.push(new Uint8Array([0xc4, b.length])); parts.push(b);
+      } else {
+        parts.push(new Uint8Array([0xc5, b.length >> 8, b.length & 0xff])); parts.push(b);
+      }
+      return;
+    }
+    if (Array.isArray(v)) {
+      if (v.length < 16) {
+        parts.push(new Uint8Array([0x90 | v.length]));
+      } else {
+        parts.push(new Uint8Array([0xdc, v.length >> 8, v.length & 0xff]));
+      }
+      for (const el of v) encodeValue(el, parts);
+      return;
+    }
+    throw new Error('msgpack: unsupported type: ' + typeof v);
+  }
+
+  function decode(buf) {
+    const view = new DataView(buf.buffer ?? buf, buf.byteOffset ?? 0);
+    let off = 0;
+    function read() {
+      const b = view.getUint8(off++);
+      // fixstr
+      if ((b & 0xe0) === 0xa0) {
+        const l = b & 0x1f; const s = buf.slice(off, off+l); off += l;
+        return new TextDecoder().decode(s);
+      }
+      // fixarray
+      if ((b & 0xf0) === 0x90) {
+        const l = b & 0x0f; const a = []; for (let i=0;i<l;i++) a.push(read()); return a;
+      }
+      // fixmap
+      if ((b & 0xf0) === 0x80) {
+        const l = b & 0x0f; const m = {};
+        for (let i=0;i<l;i++) { const k=read(); m[k]=read(); } return m;
+      }
+      if (b === 0xc0) return null;
+      if (b === 0xc2) return false;
+      if (b === 0xc3) return true;
+      if (b === 0xc4) { const l=view.getUint8(off++); const d=buf.slice(off,off+l); off+=l; return d; }
+      if (b === 0xc5) { const l=view.getUint16(off); off+=2; const d=buf.slice(off,off+l); off+=l; return d; }
+      if (b === 0xd9) { const l=view.getUint8(off++); const s=buf.slice(off,off+l); off+=l; return new TextDecoder().decode(s); }
+      if (b === 0xda) { const l=view.getUint16(off); off+=2; const s=buf.slice(off,off+l); off+=l; return new TextDecoder().decode(s); }
+      if (b === 0xdc) { const l=view.getUint16(off); off+=2; const a=[]; for(let i=0;i<l;i++) a.push(read()); return a; }
+      if (b <= 0x7f) return b;                // positive fixint
+      if (b >= 0xe0) return b - 256;          // negative fixint
+      if (b === 0xcc) return view.getUint8(off++);
+      if (b === 0xcd) { const v=view.getUint16(off); off+=2; return v; }
+      if (b === 0xce) { const v=view.getUint32(off); off+=4; return v; }
+      throw new Error(`msgpack: unknown byte 0x${b.toString(16)}`);
+    }
+    return read();
+  }
+
+  return { encode, decode };
+})();
+
+// ============================================================
+// Curve25519 (X25519) — delegated to TweetNaCl, loaded below.
+// Both methods clamp the scalar internally, matching libsodium's
+// crypto_scalarmult used by the Python reference client.
+// ============================================================
+const curve25519 = {
+  scalarMultBase(priv) { return nacl.scalarMult.base(priv); },
+  scalarMult(priv, pub) { return nacl.scalarMult(priv, pub); },
+};
+
+// ============================================================
+// SHA-512crypt ($6$) pure JS implementation
+// ============================================================
+const sha512crypt = (() => {
+  // Base64 encoding alphabet used by crypt
+  const CRYPT_B64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  function b64from(b2, b1, b0, n) {
+    let w = (b2 << 16) | (b1 << 8) | b0, s = '';
+    for (let i=0;i<n;i++) { s += CRYPT_B64[w & 0x3f]; w >>= 6; }
+    return s;
+  }
+
+  async function sha512(data) {
+    const digest = await crypto.subtle.digest('SHA-512', data);
+    return new Uint8Array(digest);
+  }
+
+  async function hash(password, salt, rounds = 5000) {
+    const enc = new TextEncoder();
+    const P = enc.encode(password);
+    const S = enc.encode(salt);
+
+    // digest A
+    let ctxA = [...P, ...S];
+
+    // digest B: password + salt + password
+    let dB = await sha512(new Uint8Array([...P, ...S, ...P]));
+
+    // add len(P) bytes of B to A, repeating
+    for (let i = P.length; i > 0; i -= 64) ctxA.push(...dB.slice(0, Math.min(i, 64)));
+
+    // for each bit of password length, add either password or digest B
+    for (let i = P.length; i > 0; i >>= 1) {
+      if (i & 1) ctxA.push(...dB);
+      else       ctxA.push(...P);
+    }
+
+    let dA = await sha512(new Uint8Array(ctxA));
+
+    // digest P
+    let ctxP = [];
+    for (let i = 0; i < P.length; i++) ctxP.push(...P);
+    let dP = await sha512(new Uint8Array(ctxP));
+
+    // P-string
+    let Pstr = [];
+    for (let i = P.length; i > 0; i -= 64) Pstr.push(...dP.slice(0, Math.min(i, 64)));
+
+    // digest S
+    let ctxS = [];
+    for (let i = 0; i < 16 + dA[0]; i++) ctxS.push(...S);
+    let dS = await sha512(new Uint8Array(ctxS));
+
+    // S-string
+    let Sstr = [];
+    for (let i = S.length; i > 0; i -= 64) Sstr.push(...dS.slice(0, Math.min(i, 64)));
+
+    // 5000 rounds
+    let C = dA;
+    for (let i = 0; i < rounds; i++) {
+      let ctx2 = [];
+      if (i & 1) ctx2.push(...Pstr); else ctx2.push(...C);
+      if (i % 3) ctx2.push(...Sstr);
+      if (i % 7) ctx2.push(...Pstr);
+      if (i & 1) ctx2.push(...C); else ctx2.push(...Pstr);
+      C = await sha512(new Uint8Array(ctx2));
+    }
+
+    // Final hash string in crypt base64
+    const h = C;
+    let out = '';
+    out += b64from(h[0], h[21], h[42], 4);
+    out += b64from(h[22], h[43], h[1],  4);
+    out += b64from(h[44], h[2],  h[23], 4);
+    out += b64from(h[3],  h[24], h[45], 4);
+    out += b64from(h[25], h[46], h[4],  4);
+    out += b64from(h[47], h[5],  h[26], 4);
+    out += b64from(h[6],  h[27], h[48], 4);
+    out += b64from(h[28], h[49], h[7],  4);
+    out += b64from(h[50], h[8],  h[29], 4);
+    out += b64from(h[9],  h[30], h[51], 4);
+    out += b64from(h[31], h[52], h[10], 4);
+    out += b64from(h[53], h[11], h[32], 4);
+    out += b64from(h[12], h[33], h[54], 4);
+    out += b64from(h[34], h[55], h[13], 4);
+    out += b64from(h[56], h[14], h[35], 4);
+    out += b64from(h[15], h[36], h[57], 4);
+    out += b64from(h[37], h[58], h[16], 4);
+    out += b64from(h[59], h[17], h[38], 4);
+    out += b64from(h[18], h[39], h[60], 4);
+    out += b64from(h[40], h[61], h[19], 4);
+    out += b64from(h[62], h[20], h[41], 4);
+    out += b64from(0,      0,     h[63], 2);
+    return out;
+  }
+
+  // Returns only the final hash field (matches passlib .split('$')[-1])
+  async function hashField(password, salt) {
+    return await hash(password, salt);
+  }
+
+  return { hashField };
+})();
+
+// ============================================================
+// BLAKE2b-256 (32-byte output), pure JS
+// ============================================================
+const blake2b = (() => {
+  // Canonical BLAKE2b (blakejs, MIT — Dmitry Chestnykh / dcode), unkeyed, 32-byte digest.
+  // 64-bit words are stored as [lo, hi] pairs of Uint32.
+  const IV32 = new Uint32Array([
+    0xF3BCC908, 0x6A09E667, 0x84CAA73B, 0xBB67AE85,
+    0xFE94F82B, 0x3C6EF372, 0x5F1D36F1, 0xA54FF53A,
+    0xADE682D1, 0x510E527F, 0x2B3E6C1F, 0x9B05688C,
+    0xFB41BD6B, 0x1F83D9AB, 0x137E2179, 0x5BE0CD19,
+  ]);
+
+  const SIGMA8 = [
+    0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
+    14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3,
+    11,8,12,0,5,2,15,13,10,14,3,6,7,1,9,4,
+    7,9,3,1,13,12,11,14,2,6,5,10,4,0,15,8,
+    9,0,5,7,2,4,10,15,14,1,11,12,6,8,3,13,
+    2,12,6,10,0,11,8,3,4,13,7,5,15,14,1,9,
+    12,5,1,15,14,13,4,10,0,7,6,3,9,2,8,11,
+    13,11,7,14,12,1,3,9,5,0,15,4,8,6,2,10,
+    6,15,14,9,11,3,0,8,12,2,13,7,1,4,10,5,
+    10,2,8,4,7,6,1,5,15,11,9,14,3,12,13,0,
+    0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,
+    14,10,4,8,9,15,13,6,1,12,0,2,11,7,5,3,
+  ];
+  const SIGMA82 = new Uint8Array(SIGMA8.map(x => x * 2));
+
+  const v = new Uint32Array(32);
+  const m = new Uint32Array(32);
+
+  function ADD64AA(a, b) {
+    const o0 = (v[a] + v[b]) >>> 0;
+    let o1 = (v[a+1] + v[b+1]) >>> 0;
+    if (o0 < v[a] >>> 0) o1 = (o1 + 1) >>> 0;
+    v[a] = o0; v[a+1] = o1;
+  }
+  function ADD64AC(a, b0, b1) {
+    let o0 = v[a] + (b0 >>> 0);
+    if (b0 < 0) o0 += 0x100000000;
+    let o1 = (v[a+1] + b1) >>> 0;
+    if (o0 >= 0x100000000) o1 = (o1 + 1) >>> 0;
+    v[a] = o0 >>> 0; v[a+1] = o1;
+  }
+  function GET32(arr, i) {
+    return (arr[i] ^ (arr[i+1] << 8) ^ (arr[i+2] << 16) ^ (arr[i+3] << 24)) >>> 0;
+  }
+
+  function G(a, b, c, d, ix, iy) {
+    const x0 = m[ix], x1 = m[ix+1];
+    const y0 = m[iy], y1 = m[iy+1];
+
+    ADD64AA(a, b); ADD64AC(a, x0, x1);
+    let xor0 = v[d] ^ v[a], xor1 = v[d+1] ^ v[a+1];
+    v[d] = xor1; v[d+1] = xor0;                        // rotr 32
+
+    ADD64AA(c, d);
+    xor0 = v[b] ^ v[c]; xor1 = v[b+1] ^ v[c+1];
+    v[b] = (xor0 >>> 24) ^ (xor1 << 8); v[b+1] = (xor1 >>> 24) ^ (xor0 << 8); // rotr 24
+
+    ADD64AA(a, b); ADD64AC(a, y0, y1);
+    xor0 = v[d] ^ v[a]; xor1 = v[d+1] ^ v[a+1];
+    v[d] = (xor0 >>> 16) ^ (xor1 << 16); v[d+1] = (xor1 >>> 16) ^ (xor0 << 16); // rotr 16
+
+    ADD64AA(c, d);
+    xor0 = v[b] ^ v[c]; xor1 = v[b+1] ^ v[c+1];
+    v[b] = (xor1 >>> 31) ^ (xor0 << 1); v[b+1] = (xor0 >>> 31) ^ (xor1 << 1); // rotr 63
+  }
+
+  function compress(h, block, t, last) {
+    for (let i = 0; i < 16; i++) { v[i] = h[i]; v[i+16] = IV32[i]; }
+    v[24] = (v[24] ^ (t & 0xffffffff)) >>> 0;
+    v[25] = (v[25] ^ Math.floor(t / 0x100000000)) >>> 0;
+    if (last) { v[28] = ~v[28] >>> 0; v[29] = ~v[29] >>> 0; }
+
+    for (let i = 0; i < 32; i++) m[i] = GET32(block, i * 4);
+
+    for (let i = 0; i < 12; i++) {
+      const o = i * 16;
+      G(0, 8, 16, 24, SIGMA82[o+0],  SIGMA82[o+1]);
+      G(2, 10, 18, 26, SIGMA82[o+2], SIGMA82[o+3]);
+      G(4, 12, 20, 28, SIGMA82[o+4], SIGMA82[o+5]);
+      G(6, 14, 22, 30, SIGMA82[o+6], SIGMA82[o+7]);
+      G(0, 10, 20, 30, SIGMA82[o+8], SIGMA82[o+9]);
+      G(2, 12, 22, 24, SIGMA82[o+10], SIGMA82[o+11]);
+      G(4, 14, 16, 26, SIGMA82[o+12], SIGMA82[o+13]);
+      G(6, 8, 18, 28,  SIGMA82[o+14], SIGMA82[o+15]);
+    }
+    for (let i = 0; i < 16; i++) h[i] = (h[i] ^ v[i] ^ v[i+16]) >>> 0;
+  }
+
+  function digest32(input) {
+    const outLen = 32;
+    const h = new Uint32Array(IV32);
+    h[0] = (h[0] ^ 0x01010000 ^ outLen) >>> 0; // param block: outlen, no key
+
+    const block = new Uint8Array(128);
+    let c = 0, t = 0;
+    for (let i = 0; i < input.length; i++) {
+      if (c === 128) { t += c; compress(h, block, t, false); c = 0; }
+      block[c++] = input[i];
+    }
+    t += c;
+    while (c < 128) block[c++] = 0;
+    compress(h, block, t, true);
+
+    const out = new Uint8Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      out[i] = (h[i >> 2] >>> (8 * (i & 3))) & 0xff;
+    }
+    return out;
+  }
+
+  return { digest32 };
+})();
+
+// ============================================================
+// Utilities
+// ============================================================
+function randomBytes(n) {
+  const b = new Uint8Array(n);
+  crypto.getRandomValues(b);
+  return b;
+}
+
+function concatBytes(...arrays) {
+  const len = arrays.reduce((a,b) => a + b.length, 0);
+  const out = new Uint8Array(len);
+  let off = 0;
+  for (const a of arrays) { out.set(a, off); off += a.length; }
+  return out;
+}
+
+function writeU16BE(n) { return new Uint8Array([(n>>8)&0xff, n&0xff]); }
+function readU16BE(buf, off=0) { return (buf[off]<<8)|buf[off+1]; }
+
+function hexToBytes(hex) {
+  const b = new Uint8Array(hex.length/2);
+  for (let i=0;i<b.length;i++) b[i]=parseInt(hex.slice(i*2,i*2+2),16);
+  return b;
+}
+function bytesToHex(b) { return Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join(''); }
+
+async function sha256(data) {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+}
+
+function b64encode(b) {
+  // Chunked: spreading a large array into fromCharCode overflows the stack.
+  let s = '';
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function b64decode(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+
+// ============================================================
+// Constants  (mirrors python/utr_ble_client.py)
+// ============================================================
+const UUID_SERVICE = '69b6a9f0-b7fa-4f67-b188-1d001bd30123';
+
+// Match the Python reference exactly:
+//   UUID_READ  = d587c47f  -> device -> phone (notify; phone subscribes here)
+//   UUID_WRITE = 9280f26c  -> phone  -> device (phone writes here, with response)
+const UUID_READ  = 'd587c47f-ac6e-4388-a31c-e6cd380ba043'; // notify (device -> phone)
+const UUID_WRITE = '9280f26c-a56f-43ea-b769-d5d732e1ac67'; // write  (phone -> device)
+
+const DEFAULT_KEY = new Uint8Array([
+  0xa7,0x81,0xf8,0xa4,0xa6,0x27,0x37,0x3b,
+  0x70,0x74,0x57,0x38,0xcd,0xff,0xdd,0x1d,
+  0xe9,0xae,0x35,0x25,0x17,0xc3,0x74,0xca,
+  0x9a,0xfc,0x21,0x5c,0x39,0xc6,0x26,0x37,
+]);
+
+const PROTO_AUTH   = 0x00;
+const PROTO_BINARY = 0x03;
+const PART_HEADER  = 1;
+const PART_BODY    = 2;
+const FMT_JSON     = 1;
+const FMT_STRING   = 2;
+
+// ============================================================
+// Crypto helpers
+// ============================================================
+function makeTransportNonce(counter) {
+  // 2B BE counter + 22 zero bytes
+  const n = new Uint8Array(24);
+  n[0] = (counter >> 8) & 0xff;
+  n[1] = counter & 0xff;
+  return n;
+}
+
+function makeShellNonce(counter) {
+  // 20 zero bytes + 4B BE counter
+  const n = new Uint8Array(24);
+  n[20] = (counter >>> 24) & 0xff;
+  n[21] = (counter >> 16) & 0xff;
+  n[22] = (counter >> 8) & 0xff;
+  n[23] = counter & 0xff;
+  return n;
+}
+
+function computeSessionKey(cliPriv, cliPub, srvPub, extra = null) {
+  const dh = curve25519.scalarMult(cliPriv, srvPub);
+  const input = extra ? concatBytes(dh, cliPub, srvPub, extra) : concatBytes(dh, cliPub, srvPub);
+  return blake2b.digest32(input);
+}
+
+// TweetNaCl (XSalsa20-Poly1305 SecretBox + X25519) is inlined above as window.nacl.
+const nacl = window.nacl;
+
+function secretboxEnc(msg, nonce, key) {
+  return nacl.secretbox(msg, nonce, key);
+}
+
+function secretboxDec(ct, nonce, key) {
+  const plain = nacl.secretbox.open(ct, nonce, key);
+  if (!plain) throw new Error('Decryption failed (bad key or corrupt data)');
+  return plain;
+}
+
+// ============================================================
+// BTLEv2 framing
+// ============================================================
+function btlev2Encode(seq, protocol, payload, key, nonceCtr) {
+  const plaintext = concatBytes(writeU16BE(seq), new Uint8Array([protocol]), payload);
+  const nonce = makeTransportNonce(nonceCtr);
+  const ct = secretboxEnc(plaintext, nonce, key);
+  return concatBytes(writeU16BE(2 + ct.length), ct);
+}
+
+function btlev2Decode(data, key, nonceCtr) {
+  const totalLen = readU16BE(data, 0);
+  const ct = data.slice(2, totalLen);
+  const nonce = makeTransportNonce(nonceCtr);
+  const pt = secretboxDec(ct, nonce, key);
+  const seq = readU16BE(pt, 0);
+  const protocol = pt[2];
+  const payload = pt.slice(3);
+  return { seq, protocol, payload };
+}
+
+// ============================================================
+// Transport DH msgpack messages
+// ============================================================
+function packDhPubkey(pubkey) {
+  return msgpack.encode(["DHPK", false, pubkey]);
+}
+
+function unpackDhPubkey(data) {
+  const arr = msgpack.decode(data);
+  if (arr[0] !== "DHPK") throw new Error(`Expected DHPK, got ${arr[0]}`);
+  const pk = arr[2];
+  return pk instanceof Uint8Array ? pk : new Uint8Array(pk);
+}
+
+// Python sends ["AUTH", "DH", pubkey] (3 elements). Match that.
+function packAuthOk(pubkey) {
+  return msgpack.encode(["AUTH", "DH", pubkey]);
+}
+
+function unpackAuthOk(data) {
+  const arr = msgpack.decode(data);
+  return Array.isArray(arr) && arr.length >= 2 && arr[0] === "AUTH" && arr[1] === "DH";
+}
+
+// ============================================================
+// UiCommV4 framing (zlib, not gzip)
+// ============================================================
+function packPart(partType, fmt, compress, data) {
+  const hdr = new Uint8Array(8);
+  hdr[0]=partType; hdr[1]=fmt; hdr[2]=compress?1:0; hdr[3]=0;
+  const dv = new DataView(hdr.buffer);
+  dv.setUint32(4, data.length, false);
+  return concatBytes(hdr, data);
+}
+
+function unpackPart(buf) {
+  const ptype   = buf[0];
+  const pfmt    = buf[1];
+  const compress = buf[2] !== 0;
+  const size    = ((buf[4]<<24)|(buf[5]<<16)|(buf[6]<<8)|buf[7]) >>> 0;
+  return { part: { type:ptype, fmt:pfmt, compress, data: buf.slice(8, 8+size) }, consumed: 8+size };
+}
+
+function packActionMsg(guid, action, bodyDict) {
+  const hdrBytes = new TextEncoder().encode(JSON.stringify({
+    id: guid, timestamp: Date.now(), type: 'request', action
+  }));
+  const bodyBytes = new TextEncoder().encode(JSON.stringify(bodyDict));
+  const hdrComp  = pako.deflate(hdrBytes);  // zlib
+  const bodyComp = pako.deflate(bodyBytes); // zlib
+  return concatBytes(
+    packPart(PART_HEADER, FMT_JSON, true, hdrComp),
+    packPart(PART_BODY,   FMT_JSON, true, bodyComp)
+  );
+}
+
+function packCmdMsg(guid, cmd) {
+  const hdrBytes = new TextEncoder().encode(JSON.stringify({
+    id: guid, timestamp: Date.now(), type: 'cmd'
+  }));
+  const hdrComp = pako.deflate(hdrBytes); // zlib
+  const cmdBytes = new TextEncoder().encode(cmd);
+  return concatBytes(
+    packPart(PART_HEADER, FMT_JSON,   true,  hdrComp),
+    packPart(PART_BODY,   FMT_STRING, false, cmdBytes)
+  );
+}
+
+function unpackMsg(buf) {
+  const { part: hdrInfo, consumed } = unpackPart(buf);
+  const { part: bodyInfo }          = unpackPart(buf.slice(consumed));
+  const hdrData  = hdrInfo.compress  ? pako.inflate(hdrInfo.data)  : hdrInfo.data;
+  const bodyData = bodyInfo.compress ? pako.inflate(bodyInfo.data) : bodyInfo.data;
+  const hdr = JSON.parse(new TextDecoder().decode(hdrData));
+  return { hdr, body: bodyData };
+}
+
+// ============================================================
+// Config encoding
+// ============================================================
+function parseConfig(raw) {
+  const cfg = {};
+  for (const line of raw.split('\n')) {
+    const idx = line.indexOf('=');
+    if (idx !== -1) {
+      cfg[line.slice(0,idx).trim()] = line.slice(idx+1).trim();
+    }
+  }
+  return cfg;
+}
+
+function serializeConfig(cfg) {
+  return Object.entries(cfg).map(([k,v]) => `${k}=${v}`).join('\n') + '\n';
+}
+
+function encodeConfig(cfg) {
+  const text = serializeConfig(cfg);
+  const compressed = pako.gzip(new TextEncoder().encode(text));
+  return b64encode(compressed);
+}
+
+function decodeConfigB64(b64) {
+  const compressed = b64decode(b64.trim());
+  const text = new TextDecoder().decode(pako.ungzip(compressed));
+  return parseConfig(text);
+}
+
+// ============================================================
+// UtrSession
+// ============================================================
+// Web Bluetooth rejects any single characteristic write larger than this.
+const MAX_WRITE = 512;
+
+// Base64 chars per staged-write command. Keeps each encrypted frame well under
+// MAX_WRITE (~130 B of framing/crypto overhead + the printf wrapper).
+const CFG_CHUNK = 320;
+
+const DEVICE_ERRORS = {
+  3: 'invalid payload / bad key',
+  7: 'wrong password (bad secret)',
+};
+
+function sameConfig(a, b) {
+  const ka = Object.keys(a), kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  return ka.every(k => Object.prototype.hasOwnProperty.call(b, k) && a[k] === b[k]);
+}
+
+class UtrSession {
+  constructor(server) {
+    this.server     = server;
+    this.seq        = 0;
+    this.txNonce    = 0;
+    this.rxNonce    = 0;
+    this.txKey      = new Uint8Array(DEFAULT_KEY);
+    this.rxKey      = new Uint8Array(DEFAULT_KEY);
+    this.shellNonce = 1969385077; // 0x756E6975
+    this._msgId     = 0;
+    this.transportLocalPub  = null;
+    this.transportServerPub = null;
+    this._rxBuf     = new Uint8Array(0);
+    this._rxQueue   = [];
+    this._rxWaiters = [];          // { done(frame), fail(err) }
+    this._lock      = Promise.resolve();
+    this._abandoned = new Set();   // guids whose response we stopped waiting for
+    this.closed     = false;
+    this._readChar  = null;  // notify (d587c47f)
+    this._writeChar = null;  // write  (9280f26c)
+  }
+
+  _newGuid() { this._msgId++; return `utr-${String(this._msgId).padStart(4,'0')}`; }
+
+  // Fail everything in flight immediately (e.g. on disconnect) instead of
+  // leaving callers hanging until their receive timeout.
+  close(err = new Error('Session closed')) {
+    if (this.closed) return;
+    this.closed = true;
+    const waiters = this._rxWaiters.splice(0);
+    for (const w of waiters) w.fail(err);
+  }
+
+  // Run fn with exclusive use of the link: one request/response at a time.
+  _exclusive(fn) {
+    const run = this._lock.then(fn, fn);
+    this._lock = run.catch(() => {});
+    return run;
+  }
+
+  _onNotify(event) {
+    const v = event.target.value;
+    const data = new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
+    const newBuf = new Uint8Array(this._rxBuf.length + data.length);
+    newBuf.set(this._rxBuf); newBuf.set(data, this._rxBuf.length);
+    this._rxBuf = newBuf;
+
+    while (this._rxBuf.length >= 2) {
+      const totalLen = readU16BE(this._rxBuf, 0);
+      if (totalLen < 2) {
+        // A length this small can't be a frame; without this guard the loop
+        // never advances. The stream is out of sync, so drop it.
+        log(`Corrupt frame length ${totalLen}; dropping ${this._rxBuf.length}B of receive buffer.`, 'error');
+        this._rxBuf = new Uint8Array(0);
+        break;
+      }
+      if (this._rxBuf.length < totalLen) break;
+      const frame = this._rxBuf.slice(0, totalLen);
+      this._rxBuf = this._rxBuf.slice(totalLen);
+      const w = this._rxWaiters.shift();
+      if (w) w.done(frame); else this._rxQueue.push(frame);
+    }
+  }
+
+  _recv(timeout = 10000) {
+    return new Promise((resolve, reject) => {
+      if (this.closed) { reject(new Error('Session closed')); return; }
+      const waiter = {
+        done: (frame) => {
+          clearTimeout(timer);
+          try {
+            const decoded = btlev2Decode(frame, this.rxKey, this.rxNonce);
+            this.rxNonce++;
+            resolve(decoded);
+          } catch (e) { reject(e); }
+        },
+        fail: (err) => { clearTimeout(timer); reject(err); },
+      };
+      const timer = setTimeout(() => {
+        // Stop waiting so this stale waiter can't swallow the next frame.
+        const i = this._rxWaiters.indexOf(waiter);
+        if (i !== -1) this._rxWaiters.splice(i, 1);
+        reject(new Error('BLE receive timeout'));
+      }, timeout);
+      if (this._rxQueue.length > 0) waiter.done(this._rxQueue.shift());
+      else this._rxWaiters.push(waiter);
+    });
+  }
+
+  async _send(protocol, payload) {
+    if (this.closed) throw new Error('Session closed');
+    const frame = btlev2Encode(this.seq, protocol, payload, this.txKey, this.txNonce);
+    if (frame.length > MAX_WRITE) {
+      throw new Error(`Frame is ${frame.length}B; Web Bluetooth writes are limited to ${MAX_WRITE}B.`);
+    }
+    this.seq = (this.seq + 1) & 0xFFFF;
+    this.txNonce++;
+    log(`→ sending ${frame.length}B (proto=0x${protocol.toString(16)})`, 'dim');
+    // Python uses write-with-response on the write characteristic (9280f26c).
+    const buf = frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength);
+    await this._writeChar.writeValueWithResponse(buf);
+  }
+
+  async transportHandshake() {
+    log('Transport DH handshake…', 'dim');
+    const priv = randomBytes(32);
+    priv[0] &= 248; priv[31] &= 127; priv[31] |= 64; // clamp
+    const pub = curve25519.scalarMultBase(priv);
+
+    await this._send(PROTO_AUTH, packDhPubkey(pub));
+
+    const { payload } = await this._recv();
+    const srvPub = unpackDhPubkey(payload);
+
+    const sessionKey = computeSessionKey(priv, pub, srvPub);
+
+    // auth-ok echoes our pubkey: ["AUTH","DH",pub]
+    await this._send(PROTO_AUTH, packAuthOk(pub));
+
+    const { payload: ack } = await this._recv();
+    if (!unpackAuthOk(ack)) throw new Error('Transport DH auth-ok not echoed');
+
+    this.txKey = this.rxKey = sessionKey;
+    this.transportLocalPub  = pub;
+    this.transportServerPub = srvPub;
+    log('Transport DH complete.', 'ok');
+  }
+
+  async _shellHandshake(username, password) {
+    const priv = randomBytes(32);
+    priv[0] &= 248; priv[31] &= 127; priv[31] |= 64;
+    const pub = curve25519.scalarMultBase(priv);
+
+    const guid = this._newGuid();
+    await this._send(PROTO_BINARY,
+      packActionMsg(guid, 'hdshkStart', { user: username, key: bytesToHex(pub) }));
+
+    const { body: b1 } = await this._recvResponse(guid);
+    const resp = JSON.parse(new TextDecoder().decode(b1));
+
+    const srvPub  = hexToBytes(resp.key);
+    const auth    = resp.auth;
+    if (parseInt(auth.type) !== 3 || parseInt(auth.id) !== 6) {
+      throw new Error('Unexpected auth type from device');
+    }
+
+    // SHA-512crypt hash of password, take only the final hash field.
+    const pwHashStr = await sha512crypt.hashField(password, auth.salt);
+    const pwHash = new TextEncoder().encode(pwHashStr); // ASCII-safe
+    const shellKey = computeSessionKey(priv, pub, srvPub, pwHash);
+
+    const n0 = makeShellNonce(this.shellNonce); this.shellNonce++;
+    const plaintext = await sha256(this.transportLocalPub);
+    const encrypted = secretboxEnc(plaintext, n0, shellKey);
+    const secret = b64encode(encrypted);
+
+    const guid2 = this._newGuid();
+    await this._send(PROTO_BINARY,
+      packActionMsg(guid2, 'hdshkFinish', { secret }));
+
+    const { body: b2 } = await this._recvResponse(guid2);
+    const resp2 = JSON.parse(new TextDecoder().decode(b2));
+
+    const n1 = makeShellNonce(this.shellNonce); this.shellNonce++;
+    const srvCt = b64decode(resp2.secret);
+    const expected = await sha256(this.transportServerPub);
+    try {
+      const decrypted = secretboxDec(srvCt, n1, shellKey);
+      if (decrypted.length !== expected.length) return false;
+      for (let i=0;i<expected.length;i++) if (decrypted[i]!==expected[i]) return false;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async shellAuthenticate(username = 'ui', password = '') {
+    const pw = (!password || password === '') ? 'ui' : password;
+    log('Shell authentication…', 'dim');
+    const ok = await this._shellHandshake(username, pw);
+    if (!ok) throw new Error('Shell auth failed: wrong password (bad secret).');
+    log('Shell auth complete.', 'ok');
+  }
+
+  async _recvResponse(guid, timeout = 30000) {
+    try {
+      while (true) {
+        const { payload } = await this._recv(timeout);
+        const { hdr, body } = unpackMsg(payload);
+        if (hdr.type === 'event') {
+          log(`[event] ${hdr.name || ''} ${new TextDecoder().decode(body).slice(0,80)}`, 'dim');
+          continue;
+        }
+        if (hdr.id && this._abandoned.delete(hdr.id)) {
+          log(`Discarding late response to ${hdr.id}.`, 'dim');
+          continue;
+        }
+        if (hdr.errorCode && hdr.errorCode !== 0) {
+          const hint = DEVICE_ERRORS[hdr.errorCode];
+          throw new Error(`Device error ${hdr.errorCode}: ${hint || hdr.error || 'unknown'}`);
+        }
+        return { hdr, body };
+      }
+    } catch (e) {
+      // If its response turns up later, recognise and drop it.
+      if (/timeout/i.test(e.message)) this._abandoned.add(guid);
+      throw e;
+    }
+  }
+
+  shell(cmd, timeout = 30000) {
+    return this._exclusive(async () => {
+      const guid = this._newGuid();
+      await this._send(PROTO_BINARY, packCmdMsg(guid, cmd));
+      const { body } = await this._recvResponse(guid, timeout);
+      return new TextDecoder('utf-8').decode(body);
+    });
+  }
+
+  async readConfig(path = '/tmp/system.cfg') {
+    log(`Reading ${path}…`, 'dim');
+    const resp = await this.shell(`cat ${path} | gzip | base64`);
+    return decodeConfigB64(resp.trim());
+  }
+
+  // Web Bluetooth caps each write at 512 B, so a whole config can't go in one
+  // command. Stage it in small appends, decode to a temp file, read that back
+  // and compare, and only then move it over /tmp/system.cfg.
+  async writeConfig(cfg, onProgress = () => {}) {
+    const encoded = encodeConfig(cfg);
+    const b64Tmp = '/tmp/.utr_cfg.b64';
+    const cfgTmp = '/tmp/.utr_cfg.new';
+    const chunks = Math.ceil(encoded.length / CFG_CHUNK);
+    log(`Writing config (${encoded.length}B encoded, ${chunks} chunks)…`, 'dim');
+
+    await this.shell(`rm -f ${b64Tmp} ${cfgTmp} && : > ${b64Tmp}`);
+    for (let i = 0; i < chunks; i++) {
+      onProgress(i + 1, chunks);
+      // base64 is [A-Za-z0-9+/=], so single quotes are safe.
+      await this.shell(`printf %s '${encoded.slice(i * CFG_CHUNK, (i + 1) * CFG_CHUNK)}' >> ${b64Tmp}`);
+    }
+    await this.shell(`base64 -d < ${b64Tmp} | gunzip > ${cfgTmp}; rm -f ${b64Tmp}`);
+
+    // Compare against what the device will actually parse (values get trimmed).
+    const written = await this.readConfig(cfgTmp);
+    if (!sameConfig(written, parseConfig(serializeConfig(cfg)))) {
+      await this.shell(`rm -f ${cfgTmp}`);
+      throw new Error('Config read-back did not match what was sent; system.cfg left unchanged.');
+    }
+    await this.shell(`mv ${cfgTmp} /tmp/system.cfg`);
+    log('Config written and verified.', 'ok');
+  }
+
+  async applyConfig() {
+    log('Applying config…', 'dim');
+    await this.shell('syswrapper.sh apply-config');
+  }
+
+  async setSsh(enabled, onProgress) {
+    const cfg = await this.readConfig();
+    cfg['sshd.status'] = enabled ? 'enabled' : 'disabled';
+    log(`sshd.status -> ${cfg['sshd.status']}`, 'info');
+    await this.writeConfig(cfg, onProgress);
+    await this.applyConfig();
+  }
+}
+
+// ============================================================
+// UI LAYER  (core above is validated & protocol-identical to python/)
+// ============================================================
+const $ = id => document.getElementById(id);
+const LS = {
+  get: (k, d) => { try { const v = localStorage.getItem('utr.'+k); return v===null?d:v; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem('utr.'+k, v); } catch {} },
+  getJSON: (k, d) => { try { return JSON.parse(localStorage.getItem('utr.'+k)) ?? d; } catch { return d; } },
+  setJSON: (k, v) => { try { localStorage.setItem('utr.'+k, JSON.stringify(v)); } catch {} },
+};
+
+// ---------- Logging ----------
+const logEl = $('log');
+let logUnseen = 0;
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function log(msg, kind = 'info') {
+  const ts = new Date().toLocaleTimeString('en', { hour12: false });
+  const line = document.createElement('div');
+  line.innerHTML = `<span class="log-ts">[${ts}]</span><span class="log-${kind}">${escHtml(msg)}</span>`;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+  if (activeTab !== 'log') {
+    logUnseen++;
+    const b = $('logBadge');
+    b.textContent = logUnseen;
+    b.classList.remove('section-hidden');
+  }
+}
+
+// ---------- Toasts ----------
+function toast(msg, kind = 'info', ms = 3200) {
+  const el = document.createElement('div');
+  el.className = `toast ${kind}`;
+  el.textContent = msg;
+  $('toasts').appendChild(el);
+  setTimeout(() => {
+    el.style.transition = 'opacity .25s, transform .25s';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(6px)';
+    setTimeout(() => el.remove(), 260);
+  }, ms);
+}
+
+// ---------- Busy overlay ----------
+let busy = false;
+function setBusy(on, label = 'Working…') {
+  busy = on;
+  $('busyLabel').textContent = label;
+  $('busy').classList.toggle('show', on);
+}
+function setBusyLabel(label) { $('busyLabel').textContent = label; }
+
+// ---------- Connection state ----------
+let session = null;             // authenticated session; null until ready
+let wire = null;                // session being set up or in use; closed on disconnect
+let currentDevice = null;
+let disconnectListener = null;  // single tracked gattserverdisconnected handler
+
+function setConnDot(state) { $('connDot').className = 'status-dot ' + (state || ''); }
+
+// Remove any previously-attached disconnect handler so we never stack duplicates
+// across attempts (requestDevice can hand back the same device object).
+function detachDisconnect() {
+  if (currentDevice && disconnectListener) {
+    try { currentDevice.removeEventListener('gattserverdisconnected', disconnectListener); } catch {}
+  }
+  disconnectListener = null;
+}
+
+// Fired only for *unexpected* drops; detaches itself so it runs at most once.
+function onDeviceDisconnected() {
+  detachDisconnect();
+  if (wire) wire.close(new Error('Device disconnected'));
+  wire = null;
+  session = null;
+  setBusy(false);
+  log('Device disconnected.', 'warn');
+  toast('Device disconnected', 'warn');
+  setConnected(false);
+}
+
+function setConnected(yes, name) {
+  setConnDot(yes ? 'connected' : '');
+  $('connStatus').textContent = yes ? (name || 'Connected') : 'Disconnected';
+  const btn = $('btnConnect');
+  btn.textContent = yes ? 'Disconnect' : 'Connect';
+  btn.classList.toggle('btn-primary', !yes);
+  btn.classList.toggle('btn-danger', yes);
+  btn.disabled = false;
+  ['username', 'password', 'serviceUuid'].forEach(id => $(id).disabled = yes);
+  updatePending();
+
+  const cfgTab   = document.querySelector('.tab[data-tab="config"]');
+  const shellTab = document.querySelector('.tab[data-tab="shell"]');
+
+  if (yes) {
+    $('tabs').classList.remove('section-hidden');
+    cfgTab.classList.remove('section-hidden');
+    shellTab.classList.remove('section-hidden');
+    showTab('config');
+  } else {
+    // Never connected → leave the whole tab area hidden.
+    if ($('tabs').classList.contains('section-hidden')) return;
+    // Otherwise keep the Log tab available so errors remain readable.
+    cfgTab.classList.add('section-hidden');
+    shellTab.classList.add('section-hidden');
+    showTab('log');
+  }
+}
+
+// ---------- Tabs ----------
+let activeTab = 'config';
+function showTab(name) {
+  activeTab = name;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  ['config','shell','log'].forEach(p => $('panel-'+p).classList.toggle('section-hidden', p !== name));
+  if (name === 'log') { logUnseen = 0; $('logBadge').classList.add('section-hidden'); }
+  if (name === 'shell') setTimeout(() => $('shellCmd').focus(), 30);
+}
+document.querySelectorAll('.tab').forEach(t =>
+  t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+// ============================================================
+// BLE connect / disconnect
+// ============================================================
+function svcUuidValue() {
+  return ($('serviceUuid').value.trim() || UUID_SERVICE).toLowerCase();
+}
+
+// The UTR advertises its GATT service UUID, so the chooser filters on it
+// exactly: only UTRs are listed, with no name matching. Listing a service in a
+// filter also grants access to it after connecting.
+function requestDeviceOpts(svcUuid) {
+  return { filters: [{ services: [svcUuid] }] };
+}
+
+async function establishSession(device, svcUuid) {
+  // Clean up anything a previous (possibly failed) attempt left behind.
+  detachDisconnect();
+  if (currentDevice && currentDevice !== device && currentDevice.gatt?.connected) {
+    try { currentDevice.gatt.disconnect(); } catch {}
+  }
+  currentDevice = device;
+  $('connStatus').textContent = 'Connecting…';
+  setConnDot('working');
+
+  disconnectListener = onDeviceDisconnected;
+  device.addEventListener('gattserverdisconnected', disconnectListener);
+
+  const bleServer = await device.gatt.connect();
+  const service   = await bleServer.getPrimaryService(svcUuid);
+  log(`Opened service ${svcUuid}`, 'dim');
+
+  const writeChar = await service.getCharacteristic(UUID_WRITE.toLowerCase());
+  const readChar  = await service.getCharacteristic(UUID_READ.toLowerCase());
+  log('Characteristics found (write 9280f26c, notify d587c47f).', 'ok');
+
+  const s = new UtrSession(bleServer);
+  s._writeChar = writeChar;
+  s._readChar  = readChar;
+  wire = s;
+
+  readChar.addEventListener('characteristicvaluechanged', e => s._onNotify(e));
+  await readChar.startNotifications();
+
+  await new Promise(r => setTimeout(r, 500));
+  setBusyLabel('Authenticating…');
+  await s.transportHandshake();
+  const user = $('username').value.trim() || 'ui';
+  await s.shellAuthenticate(user, $('password').value);
+
+  session = s;
+  LS.set('username', user);
+  LS.set('serviceUuid', $('serviceUuid').value.trim());
+  setConnected(true, device.name || 'UTR');
+  log('Session ready.', 'ok');
+  toast('Connected · session ready', 'ok');
+  setBusyLabel('Reading config…');
+  await autoLoadConfig();
+}
+
+async function connect() {
+  const svcUuid = svcUuidValue();
+  $('btnConnect').disabled = true;
+  setBusy(true, 'Choose your UTR…');
+  try {
+    const device = await navigator.bluetooth.requestDevice(requestDeviceOpts(svcUuid));
+    log(`Selected device: ${device.name || '(unnamed)'}`, 'ok');
+    setBusyLabel('Connecting…');
+    await establishSession(device, svcUuid);
+  } catch (err) {
+    handleConnError(err);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function handleConnError(err) {
+  const raw = (err && err.message) || String(err);
+  // Tear down the half-open connection so a retry starts clean.
+  detachDisconnect();
+  if (wire) wire.close(err);
+  wire = null;
+  session = null;
+  try { if (currentDevice?.gatt?.connected) currentDevice.gatt.disconnect(); } catch {}
+  setConnected(false);
+
+  if (err && err.name === 'NotFoundError' && /cancel/i.test(raw)) {
+    log('Device chooser cancelled.', 'dim');
+    return;
+  }
+  log(`Connection failed: ${raw}`, 'error');
+  toast(`Connection failed: ${raw}`, 'error', 5000);
+  if (/Services matching/i.test(raw)) {
+    log('The device does not expose the configured service UUID; check Advanced → Service UUID.', 'warn');
+  }
+  setConnDot('error');
+  $('connStatus').textContent = 'Error';
+}
+
+async function disconnect() {
+  // Detach first so the intentional disconnect below doesn't also fire the
+  // "Device disconnected" handler; we log a single "Disconnected." instead.
+  detachDisconnect();
+  const s = wire;
+  wire = null;
+  session = null;
+  if (s) {
+    s.close(new Error('Disconnected'));
+    try { await s._readChar?.stopNotifications(); } catch {}
+  }
+  try { if (currentDevice?.gatt?.connected) currentDevice.gatt.disconnect(); } catch {}
+  setBusy(false);
+  setConnected(false);
+  log('Disconnected.', 'warn');
+}
+
+function toggleConnection() {
+  if (session || wire) disconnect();
+  else connect();
+}
+
+// ============================================================
+// Action runner
+// ============================================================
+async function run(label, fn) {
+  if (busy) { toast('Busy: wait for the current operation to finish', 'warn'); return; }
+  if (!session) { toast('Not connected', 'warn'); return; }
+  setBusy(true, label);
+  setConnDot('working');
+  try {
+    return await fn();
+  } catch (err) {
+    const msg = (err && err.message) || String(err);
+    log(`Error: ${msg}`, 'error');
+    toast(msg, 'error', 5000);
+  } finally {
+    setBusy(false);
+    if (session) setConnDot('connected');
+  }
+}
+
+// ============================================================
+// Config editor
+// ============================================================
+let originalCfg = {};              // last-read device config
+let cfgLoaded = false;             // true once a config has actually been read from the device
+const edits = new Map();           // key -> new value (changed existing OR added)
+const addedKeys = new Set();       // keys not present in originalCfg
+const removedKeys = new Set();     // existing keys marked for deletion
+
+// Everything that stages or writes changes goes through this. Without a real
+// device config as the base, Apply would replace system.cfg with just the
+// staged keys.
+function requireLoadedConfig() {
+  if (cfgLoaded) return true;
+  toast('Load the config from the device first (Reload)', 'warn');
+  return false;
+}
+
+function isDirty(key) {
+  if (removedKeys.has(key)) return true;
+  if (addedKeys.has(key)) return true;
+  return edits.has(key) && edits.get(key) !== originalCfg[key];
+}
+function effectiveValue(key) {
+  return edits.has(key) ? edits.get(key) : (originalCfg[key] ?? '');
+}
+function dirtyKeys() {
+  const keys = new Set([...Object.keys(originalCfg), ...addedKeys]);
+  return [...keys].filter(isDirty);
+}
+
+function updatePending() {
+  const n = dirtyKeys().length;
+  const badge = $('pendingBadge');
+  badge.textContent = n;
+  badge.classList.toggle('section-hidden', n === 0);
+  $('btnApply').disabled = n === 0 || !session || !cfgLoaded;
+  $('btnDiscard').disabled = n === 0;
+  ['btnAddKey', 'btnImport', 'btnExport', 'newKey', 'newVal'].forEach(id => $(id).disabled = !cfgLoaded);
+  $('applyHint').textContent = n ? `${n} pending change${n>1?'s':''} · writes system.cfg + apply-config` : '';
+}
+
+function renderConfig() {
+  const filter = $('cfgSearch').value.trim().toLowerCase();
+  const keys = [...new Set([...Object.keys(originalCfg), ...addedKeys])].sort();
+  const body = $('cfgBody');
+  body.innerHTML = '';
+  let shown = 0;
+  for (const key of keys) {
+    const val = effectiveValue(key);
+    if (filter && !key.toLowerCase().includes(filter) && !String(val).toLowerCase().includes(filter)) continue;
+    shown++;
+    const tr = document.createElement('tr');
+    if (isDirty(key)) tr.classList.add('dirty');
+    if (addedKeys.has(key)) tr.classList.add('added');
+    if (removedKeys.has(key)) tr.classList.add('removed');
+
+    const tdK = document.createElement('td'); tdK.className = 'k'; tdK.textContent = key;
+    const tdV = document.createElement('td'); tdV.className = 'v';
+    const inp = document.createElement('input');
+    inp.className = 'vedit'; inp.value = val; inp.spellcheck = false;
+    inp.disabled = removedKeys.has(key);
+    inp.addEventListener('input', () => onValueEdit(key, inp.value));
+    tdV.appendChild(inp);
+    const tdA = document.createElement('td'); tdA.className = 'act';
+    const del = document.createElement('button');
+    del.className = 'btn-ghost btn-sm';
+    del.textContent = removedKeys.has(key) ? '↺' : '✕';
+    del.title = removedKeys.has(key) ? 'Restore key' : 'Delete key';
+    del.addEventListener('click', () => toggleRemove(key));
+    tdA.appendChild(del);
+
+    tr.append(tdK, tdV, tdA);
+    body.appendChild(tr);
+  }
+  const total = keys.length;
+  $('cfgEmpty').style.display = total === 0 ? 'block' : 'none';
+  $('cfgMeta').textContent = total
+    ? (filter ? `${shown} / ${total} keys` : `${total} keys`)
+    : '';
+  updatePending();
+}
+
+function onValueEdit(key, value) {
+  if (addedKeys.has(key)) { edits.set(key, value); }
+  else if (value === (originalCfg[key] ?? '')) { edits.delete(key); }
+  else { edits.set(key, value); }
+  // update just this row's dirty styling without full re-render (keeps focus)
+  updatePending();
+  const rows = $('cfgBody').querySelectorAll('tr');
+  for (const r of rows) {
+    if (r.querySelector('td.k')?.textContent === key) {
+      r.classList.toggle('dirty', isDirty(key));
+    }
+  }
+}
+
+function toggleRemove(key) {
+  if (addedKeys.has(key)) { addedKeys.delete(key); edits.delete(key); }
+  else if (removedKeys.has(key)) removedKeys.delete(key);
+  else removedKeys.add(key);
+  renderConfig();
+}
+
+function addKey() {
+  if (!requireLoadedConfig()) return;
+  const k = $('newKey').value.trim();
+  const v = $('newVal').value;
+  if (!k) { toast('Key is empty', 'warn'); return; }
+  if (k in originalCfg && !removedKeys.has(k)) { toast('Key already exists — edit it in the table', 'warn'); return; }
+  addedKeys.add(k); edits.set(k, v);
+  $('newKey').value = ''; $('newVal').value = '';
+  $('cfgSearch').value = '';
+  renderConfig();
+  toast(`Added ${k}`, 'ok');
+}
+
+function buildFinalCfg() {
+  const out = { ...originalCfg };
+  for (const k of removedKeys) delete out[k];
+  for (const [k, v] of edits) { if (!removedKeys.has(k)) out[k] = v; }
+  return out;
+}
+
+function loadCfgIntoEditor(cfg) {
+  originalCfg = { ...cfg };
+  cfgLoaded = true;
+  edits.clear(); addedKeys.clear(); removedKeys.clear();
+  renderConfig();
+}
+
+// Swap in a fresh device config but keep the user's pending edits on top of it.
+// Used on reload, reconnect and after SSH toggles so staged work isn't lost.
+function rebaseConfig(cfg) {
+  originalCfg = { ...cfg };
+  cfgLoaded = true;
+  for (const k of [...addedKeys]) {
+    if (k in originalCfg) addedKeys.delete(k);   // now an edit of an existing key
+  }
+  for (const k of [...edits.keys()]) {
+    if (!(k in originalCfg)) addedKeys.add(k);   // key vanished from device: re-add it
+    else if (!addedKeys.has(k) && edits.get(k) === originalCfg[k]) edits.delete(k);
+  }
+  for (const k of [...removedKeys]) {
+    if (!(k in originalCfg)) removedKeys.delete(k);
+  }
+  renderConfig();
+  return dirtyKeys().length;
+}
+
+function reportLoaded(cfg, kept) {
+  const n = Object.keys(cfg).length;
+  log(`Config loaded: ${n} keys${kept ? `, ${kept} pending edit(s) kept` : ''}.`, 'ok');
+  return n;
+}
+
+async function reloadConfig() {
+  await run('Reading config…', async () => {
+    const cfg = await session.readConfig();
+    const kept = rebaseConfig(cfg);
+    const n = reportLoaded(cfg, kept);
+    toast(`Loaded ${n} keys${kept ? ` · ${kept} pending edit(s) kept` : ''}`, 'ok');
+  });
+}
+
+async function autoLoadConfig() {
+  try {
+    const cfg = await session.readConfig();
+    reportLoaded(cfg, rebaseConfig(cfg));
+  } catch (e) {
+    log(`Could not load config: ${e.message}. Use Reload to retry.`, 'warn');
+  }
+}
+
+function writeProgress(verb) {
+  return (i, total) => setBusyLabel(`${verb} (${i}/${total})…`);
+}
+
+async function applyChanges() {
+  if (!requireLoadedConfig()) return;
+  const changed = dirtyKeys();
+  if (!changed.length) return;
+  const summary = changed.slice(0, 8).join(', ') + (changed.length > 8 ? `, +${changed.length-8} more` : '');
+  if (!confirm(`Apply ${changed.length} change(s) to the router?\n\n${summary}\n\nThe config is written in chunks, read back and verified, then moved over /tmp/system.cfg and applied with syswrapper.sh apply-config.`)) return;
+  await run('Writing config…', async () => {
+    const finalCfg = buildFinalCfg();
+    await session.writeConfig(finalCfg, writeProgress('Writing config'));
+    setBusyLabel('Applying config…');
+    await session.applyConfig();
+    loadCfgIntoEditor(finalCfg);
+    log(`Applied ${changed.length} change(s).`, 'ok');
+    toast(`Applied ${changed.length} change(s)`, 'ok');
+  });
+}
+
+function discardChanges() {
+  if (!dirtyKeys().length) return;
+  edits.clear(); addedKeys.clear(); removedKeys.clear();
+  renderConfig();
+  toast('Changes discarded', 'info');
+}
+
+function exportConfig() {
+  if (!requireLoadedConfig()) return;
+  const cfg = buildFinalCfg();
+  const text = serializeConfig(cfg);
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'system.cfg';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Exported system.cfg', 'ok');
+}
+
+function importConfig(file) {
+  if (!requireLoadedConfig()) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const imported = parseConfig(reader.result);
+      let count = 0;
+      for (const [k, v] of Object.entries(imported)) {
+        if (!(k in originalCfg)) { addedKeys.add(k); edits.set(k, v); count++; }
+        else if ((originalCfg[k] ?? '') !== v) { edits.set(k, v); count++; }
+      }
+      renderConfig();
+      toast(`Imported ${count} change(s) — review, then Apply`, count ? 'ok' : 'info', 4500);
+      log(`Imported file: ${count} differing key(s) staged.`, 'ok');
+    } catch (e) {
+      toast('Import failed: ' + e.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
+// Terminal / shell
+// ============================================================
+const termEl = $('term');
+function termWrite(text, cls = 'out') {
+  const div = document.createElement('div');
+  div.className = cls;
+  div.textContent = text;
+  termEl.appendChild(div);
+  termEl.scrollTop = termEl.scrollHeight;
+}
+
+let cmdHistory = LS.getJSON('cmdHistory', []);
+let histIdx = cmdHistory.length;
+
+async function runShell(cmd) {
+  cmd = cmd.trim();
+  if (!cmd) return;
+  // Enter still reaches the input while the busy overlay is up; don't start
+  // a second command on top of the running one.
+  if (busy) { toast('Busy: wait for the current command to finish', 'warn'); return; }
+  if (!session) { toast('Not connected', 'warn'); return; }
+  if (/^\s*reboot\b/.test(cmd) && !confirm('Reboot the router now?')) return;
+  cmdHistory = cmdHistory.filter(c => c !== cmd);
+  cmdHistory.push(cmd);
+  if (cmdHistory.length > 100) cmdHistory = cmdHistory.slice(-100);
+  LS.setJSON('cmdHistory', cmdHistory);
+  histIdx = cmdHistory.length;
+  termWrite(cmd, 'cmd');
+  $('shellCmd').value = '';
+  await run(`$ ${cmd}`, async () => {
+    const out = await session.shell(cmd);
+    termWrite(out.replace(/\s+$/, '') || '(no output)', 'out');
+  });
+}
+
+const QUICK_CMDS = [
+  { label: 'version', cmd: 'cat /etc/version' },
+  { label: 'uname',   cmd: 'uname -a' },
+  { label: 'uptime',  cmd: 'uptime' },
+  { label: 'mem',     cmd: 'free' },
+  { label: 'disk',    cmd: 'df -h' },
+  { label: 'ifconfig',cmd: 'ifconfig' },
+  { label: 'arp',     cmd: 'cat /proc/net/arp' },
+  { label: 'reboot',  cmd: 'reboot', danger: true },
+];
+function renderQuickCmds() {
+  const wrap = $('quickCmds');
+  wrap.innerHTML = '';
+  for (const q of QUICK_CMDS) {
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (q.danger ? ' danger' : '');
+    chip.textContent = q.label;
+    chip.title = q.cmd;
+    chip.addEventListener('click', () => runShell(q.cmd));
+    wrap.appendChild(chip);
+  }
+}
+
+// ============================================================
+// Wiring
+// ============================================================
+$('btnConnect').addEventListener('click', toggleConnection);
+
+$('pwToggle').addEventListener('click', () => {
+  const p = $('password');
+  const show = p.type === 'password';
+  p.type = show ? 'text' : 'password';
+  $('pwToggle').textContent = show ? 'HIDE' : 'SHOW';
+});
+
+$('advToggle').addEventListener('click', () => {
+  const open = $('advancedRow').classList.toggle('open');
+  $('advToggle').textContent = (open ? '▾' : '▸') + ' Advanced';
+  LS.set('advanced', open ? '1' : '0');
+});
+
+
+// Config editor wiring
+$('btnReload').addEventListener('click', reloadConfig);
+$('btnDump').addEventListener('click', reloadConfig);
+$('cfgSearch').addEventListener('input', renderConfig);
+$('btnAddKey').addEventListener('click', addKey);
+$('newVal').addEventListener('keydown', e => { if (e.key === 'Enter') addKey(); });
+$('btnApply').addEventListener('click', applyChanges);
+$('btnDiscard').addEventListener('click', discardChanges);
+$('btnExport').addEventListener('click', exportConfig);
+$('btnImport').addEventListener('click', () => $('importFile').click());
+$('importFile').addEventListener('change', e => { if (e.target.files[0]) importConfig(e.target.files[0]); e.target.value=''; });
+
+function setSsh(enabled) {
+  const label = enabled ? 'Enabling SSH' : 'Disabling SSH';
+  return run(`${label}…`, async () => {
+    await session.setSsh(enabled, writeProgress(label));
+    setBusyLabel('Refreshing config…');
+    await autoLoadConfig();   // rebases, so pending edits survive
+    log(`SSH ${enabled ? 'enabled' : 'disabled'} and config applied.`, 'ok');
+    toast(`SSH ${enabled ? 'enabled' : 'disabled'}`, 'ok');
+  });
+}
+$('btnSshOn').addEventListener('click', () => setSsh(true));
+$('btnSshOff').addEventListener('click', () => setSsh(false));
+
+// Shell wiring
+renderQuickCmds();
+$('btnRun').addEventListener('click', () => runShell($('shellCmd').value));
+$('shellCmd').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { runShell($('shellCmd').value); }
+  else if (e.key === 'ArrowUp') {
+    if (histIdx > 0) { histIdx--; $('shellCmd').value = cmdHistory[histIdx] || ''; e.preventDefault(); }
+  } else if (e.key === 'ArrowDown') {
+    if (histIdx < cmdHistory.length) { histIdx++; $('shellCmd').value = cmdHistory[histIdx] || ''; e.preventDefault(); }
+  }
+});
+$('btnClearTerm').addEventListener('click', () => termEl.innerHTML = '');
+$('btnCopyTerm').addEventListener('click', () => {
+  navigator.clipboard.writeText(termEl.innerText).then(() => toast('Terminal copied', 'ok'));
+});
+
+// Log wiring
+$('btnClearLog').addEventListener('click', () => logEl.innerHTML = '');
+$('btnCopyLog').addEventListener('click', () => {
+  navigator.clipboard.writeText(logEl.innerText).then(() => toast('Log copied', 'ok'));
+});
+
+// ============================================================
+// Init
+// ============================================================
+(() => {
+  // Restore persisted settings
+  $('username').value = LS.get('username', 'ui');
+  $('serviceUuid').value = LS.get('serviceUuid', UUID_SERVICE);
+  if (LS.get('advanced', '0') === '1') { $('advancedRow').classList.add('open'); $('advToggle').textContent = '▾ Advanced'; }
+  updatePending();
+
+  if (!navigator.bluetooth) {
+    $('compatWarn').classList.add('visible');
+    $('btnConnect').disabled = true;
+    log('Web Bluetooth not available in this browser.', 'error');
+    return;
+  }
+  if (!nacl || typeof pako === 'undefined') {
+    $('btnConnect').disabled = true;
+    log('Bundled crypto/compression libraries failed to initialise.', 'error');
+    return;
+  }
+  log('Web Bluetooth available. Ready to connect.', 'ok');
+  // Panels stay hidden until a session is established (setConnected drives showTab).
+})();
+</script>
+</body>
+</html>

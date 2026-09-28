@@ -151,6 +151,48 @@ python3 utr_ble_client.py run uname -a
 
 ------------------------------------------------------------------------
 
+## Browser Client (Web Bluetooth)
+
+A single-file, no-build browser port lives at
+[`web/utr_ble_client.html`](web/utr_ble_client.html). It reimplements the
+entire protocol stack in JavaScript (msgpack, Curve25519, BLAKE2b,
+SHA512-crypt, BTLEv2 + UiCommV4 framing) and talks to the device over
+**Web Bluetooth**. The crypto is verified against the same test vectors
+and produces byte-identical session keys to the Python client. Its
+libraries are bundled in the file, so it works without internet.
+
+### Running it
+
+Open it over a secure context — `https://`, `http://localhost`, or a
+local static server:
+
+``` bash
+cd web && python3 -m http.server 8777
+# then open http://localhost:8777/utr_ble_client.html
+```
+
+Click **Connect** and pick the UTR from the browser chooser. The chooser
+only lists devices advertising the UTR service. The app then runs the
+handshake and loads the config. Features:
+
+- Searchable, editable **config editor** with pending-change tracking,
+  add/delete keys, and export / import of `system.cfg`. Changes are
+  written in small chunks, read back and verified, and only then
+  applied.
+- A **shell** with command history, quick-command chips, and copy.
+- Quick SSH on/off toggles and a log tab.
+
+### Platform support
+
+- Works: Chrome / Edge on desktop (macOS, Windows, Linux) and Android.
+- Does **not** work: Safari (all platforms) and any browser on iOS —
+  Apple does not implement Web Bluetooth.
+
+See [`doc/protocol.md`](doc/protocol.md#web-bluetooth-port-webutr_ble_clienthtml)
+for the porting notes and Web Bluetooth limitations.
+
+------------------------------------------------------------------------
+
 ## Disclaimer
 
 This tool is not officially supported by Ubiquiti. Use at your own risk.
