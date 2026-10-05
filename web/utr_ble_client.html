@@ -1122,7 +1122,16 @@ function b64decode(s) { return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
 // ============================================================
 // Constants  (mirrors python/utr_ble_client.py)
 // ============================================================
-const UUID_SERVICE = '69b6a9f0-b7fa-4f67-b188-1d001bd30123';
+// GATT service UUIDs, from the firmware's /usr/share/unifi-anywhere/sys-db.txt.
+// Each model has two: the factory-default one, advertised while unadopted, and
+// a "user-configured" one that replaces it once adopted (mgmt.is_default=false).
+// The characteristics below are the same on every model.
+const UTR_SERVICES = [
+  { uuid: '69b6a9f0-b7fa-4f67-b188-1d001bd30123', model: 'UTR',    state: 'factory default' }, // ea06
+  { uuid: 'f1d3710a-cc01-43ee-b433-340d79b8effb', model: 'UTR',    state: 'adopted' },
+  { uuid: '34aa91eb-a289-4655-a4f8-0a5571e5b208', model: 'UTR-LR', state: 'factory default' }, // ea08
+  { uuid: '0048f117-48e1-40bc-9da0-5544fc383f8d', model: 'UTR-LR', state: 'adopted' },
+];
 
 // Match the Python reference exactly:
 //   UUID_READ  = d587c47f  -> device -> phone (notify; phone subscribes here)
@@ -1739,14 +1748,25 @@ document.querySelectorAll('.tab[data-tab]').forEach(t =>
 // ============================================================
 // BLE connect / disconnect
 // ============================================================
-// The UTR advertises its GATT service UUID, so the chooser filters on it
-// exactly: only UTRs are listed, with no name matching. Listing a service in a
-// filter also grants access to it after connecting.
-function requestDeviceOpts(svcUuid) {
-  return { filters: [{ services: [svcUuid] }] };
+// The router advertises its GATT service UUID, so the chooser filters on the
+// known ones exactly (filters are OR'ed): only UTRs and UTR-LRs are listed,
+// with no name matching. A service named in a filter is also accessible after
+// connecting.
+function requestDeviceOpts() {
+  return { filters: UTR_SERVICES.map(s => ({ services: [s.uuid] })) };
 }
 
-async function establishSession(device, svcUuid) {
+// Find whichever of the known services this device exposes.
+async function findUtrService(bleServer) {
+  const services = await bleServer.getPrimaryServices();
+  for (const service of services) {
+    const known = UTR_SERVICES.find(s => s.uuid === service.uuid.toLowerCase());
+    if (known) return { service, known };
+  }
+  throw new Error('No known UTR service found on this device');
+}
+
+async function establishSession(device) {
   // Clean up anything a previous (possibly failed) attempt left behind.
   detachDisconnect();
   if (currentDevice && currentDevice !== device && currentDevice.gatt?.connected) {
@@ -1760,8 +1780,8 @@ async function establishSession(device, svcUuid) {
   device.addEventListener('gattserverdisconnected', disconnectListener);
 
   const bleServer = await device.gatt.connect();
-  const service   = await bleServer.getPrimaryService(svcUuid);
-  log(`Opened service ${svcUuid}`, 'dim');
+  const { service, known } = await findUtrService(bleServer);
+  log(`Opened service ${known.uuid} (${known.model}, ${known.state})`, 'dim');
 
   const writeChar = await service.getCharacteristic(UUID_WRITE.toLowerCase());
   const readChar  = await service.getCharacteristic(UUID_READ.toLowerCase());
@@ -1783,7 +1803,7 @@ async function establishSession(device, svcUuid) {
 
   session = s;
   LS.set('username', user);
-  setConnected(true, device.name || 'UTR');
+  setConnected(true, device.name || known.model);
   log('Session ready.', 'ok');
   toast('Connected · session ready', 'ok');
   setBusyLabel('Reading config…');
@@ -1792,14 +1812,13 @@ async function establishSession(device, svcUuid) {
 }
 
 async function connect() {
-  const svcUuid = UUID_SERVICE;
   $('btnConnect').disabled = true;
-  setBusy(true, 'Choose your UTR…');
+  setBusy(true, 'Choose your router…');
   try {
-    const device = await navigator.bluetooth.requestDevice(requestDeviceOpts(svcUuid));
+    const device = await navigator.bluetooth.requestDevice(requestDeviceOpts());
     log(`Selected device: ${device.name || '(unnamed)'}`, 'ok');
     setBusyLabel('Connecting…');
-    await establishSession(device, svcUuid);
+    await establishSession(device);
   } catch (err) {
     handleConnError(err);
   } finally {
@@ -1823,8 +1842,8 @@ function handleConnError(err) {
   }
   log(`Connection failed: ${raw}`, 'error');
   toast(`Connection failed: ${raw}`, 'error', 5000);
-  if (/Services matching/i.test(raw)) {
-    log(`The device does not expose the UTR service (${UUID_SERVICE}).`, 'warn');
+  if (/Services matching|No known UTR service/i.test(raw)) {
+    log(`The device exposes none of the known UTR / UTR-LR services (${UTR_SERVICES.map(s => s.uuid).join(', ')}).`, 'warn');
   }
   setConnDot('error');
   $('connStatus').textContent = 'Error';

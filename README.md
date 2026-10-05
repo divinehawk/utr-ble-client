@@ -175,8 +175,10 @@ cd web && python3 -m http.server 8777
 # then open http://localhost:8777/utr_ble_client.html
 ```
 
-Click **Connect** and pick the UTR from the browser chooser. The chooser
-only lists devices advertising the UTR service. The app then runs the
+Click **Connect** and pick the router from the browser chooser. The
+chooser only lists devices advertising a UTR or UTR-LR service (each
+model uses a different service UUID before and after adoption; see
+[`doc/protocol.md`](doc/protocol.md#advertisement)). The app then runs the
 handshake and loads the config. Features:
 
 - Searchable, editable **config editor** with pending-change tracking,

@@ -181,6 +181,17 @@ Observed UTR advertisement (bleak scan):
 
 -   Service UUIDs: `69b6a9f0-b7fa-4f67-b188-1d001bd30123` (the GATT
     service is advertised).
+-   The service UUID depends on the model and on whether the router is
+    adopted. The firmware picks it from
+    `/usr/share/unifi-anywhere/sys-db.txt`: the "factory-default" column
+    while `mgmt.is_default` is not `false`, otherwise the
+    "user-configured" column. The characteristics are the same in all
+    of them.
+
+    | Model  | System ID | Factory default                        | Adopted                                |
+    |--------|-----------|----------------------------------------|----------------------------------------|
+    | UTR    | `ea06`    | `69b6a9f0-b7fa-4f67-b188-1d001bd30123` | `f1d3710a-cc01-43ee-b433-340d79b8effb` |
+    | UTR-LR | `ea08`    | `34aa91eb-a289-4655-a4f8-0a5571e5b208` | `0048f117-48e1-40bc-9da0-5544fc383f8d` |
 -   Service data under `0x252A`: 6 bytes, the Identity MAC (what the
     Python scanner matches on).
 -   No manufacturer data. The device name is `UTR`, but nothing relies
@@ -191,9 +202,10 @@ Observed UTR advertisement (bleak scan):
 -   **Device chooser instead of a scan.** Web Bluetooth has no passive
     scan and cannot read advertisement contents, so the user picks the
     device in the browser's chooser. The chooser is filtered with
-    `filters: [{ services: [<service UUID>] }]`, which lists only
-    devices advertising the UTR GATT service (no name matching). A
-    service named in a filter is also accessible after connecting.
+    one `{ services: [<service UUID>] }` filter per UUID in the table
+    above, which lists only devices advertising one of them (no name
+    matching). A service named in a filter is also accessible after
+    connecting, and the client opens whichever one the device has.
     `serviceData` filters are in the spec but were rejected by current
     Chrome ("A filter must restrict the devices in some way"), so they
     are not used.
