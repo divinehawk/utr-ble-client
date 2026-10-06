@@ -459,6 +459,25 @@
     .device .btn-row { margin-left: 0; width: 100%; }
     table.cfg td.k { width: 40%; }
   }
+
+  /* ---------- Firmware ---------- */
+  select {
+    width: 100%; height: 34px; background: var(--surface); color: var(--text);
+    border: 1px solid var(--border-strong); border-radius: 4px;
+    font: inherit; font-size: 13px; padding: 0 8px; outline: none;
+  }
+  select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-soft); }
+  .fw-grid { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; font-size: 13px; }
+  .fw-k { color: var(--muted); }
+  .fw-v { overflow-wrap: anywhere; }
+  .fw-why { color: var(--amber); }
+  .fw-form { display: grid; gap: 12px; }
+  .fw-inline { display: flex; gap: 8px; }
+  .fw-job-row { display: flex; align-items: center; gap: 16px; margin-top: 12px; flex-wrap: wrap; }
+  .fw-job-row .btn-row { margin-left: auto; }
+  .fw-steps { margin: 0 0 10px; padding-left: 20px; line-height: 1.8; font-size: 13px; }
+  .fw-steps li.fw-here { font-weight: 600; }
+  #fwNotice { margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -481,6 +500,10 @@
     <button class="tab" data-tab="shell" aria-label="Shell">
       <svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg>
       <span class="tip">Shell</span>
+    </button>
+    <button class="tab" data-tab="firmware" aria-label="Firmware">
+      <svg class="i" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg>
+      <span class="tip">Firmware</span>
     </button>
     <button class="tab" data-tab="log" aria-label="Log">
       <svg class="i" viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>
@@ -714,6 +737,77 @@
             <input type="text" id="shellCmd" placeholder="Command (↑/↓ for history)" spellcheck="false" autocomplete="off" />
             <button class="btn-primary" id="btnRun">Run</button>
           </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- FIRMWARE PANEL: switch between stock and OpenWrt, upgrade either -->
+    <div class="tab-panel section-hidden" id="panel-firmware">
+      <section class="card">
+        <div class="card-header">
+          Firmware <span class="cfg-meta" id="fwMeta"></span>
+          <div class="actions"><button class="btn-ghost" id="fwRefresh">Refresh</button></div>
+        </div>
+        <div class="card-body">
+          <div class="notice section-hidden" id="fwNotice"></div>
+          <div class="fw-grid" id="fwState"><div class="fw-k">Not read yet</div><div></div></div>
+        </div>
+      </section>
+
+      <section class="card section-hidden" id="fwJobCard">
+        <div class="card-header">OpenWrt image</div>
+        <div class="card-body">
+          <div id="fwJobText"></div>
+          <div class="meter"><span id="fwJobBar"></span></div>
+          <div class="fw-job-row">
+            <label class="inline-switch section-hidden" id="fwKeepRow">
+              <span class="switch"><input type="checkbox" id="fwKeepSettings" checked /><span class="track"></span></span>
+              Keep settings
+            </label>
+            <div class="btn-row">
+              <button class="btn-secondary btn-sm" id="fwJobCancel">Cancel</button>
+              <button class="btn-primary btn-sm section-hidden" id="fwJobInstall">Install</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card section-hidden" id="fwPickCard">
+        <div class="card-header">
+          <span id="fwPickTitle">Choose an image</span>
+          <div class="actions"><button class="btn-ghost" id="fwPickClose">Close</button></div>
+        </div>
+        <div class="card-body fw-form">
+          <div class="field-group"><label for="fwSource">Source</label><select id="fwSource"></select></div>
+          <div class="field-group" id="fwRepoRow">
+            <label for="fwRepo">Repository <span class="hint">(owner/name; releases need an asset named for this model)</span></label>
+            <div class="fw-inline"><input type="text" id="fwRepo" spellcheck="false" /><button class="btn-ghost btn-sm" id="fwRepoLoad">Load</button></div>
+          </div>
+          <div class="field-group" id="fwImageRow"><label for="fwImage">Image</label><select id="fwImage"></select></div>
+          <div class="section-hidden fw-form" id="fwCustomRow">
+            <div class="field-group"><label for="fwCustomUrl">Image URL</label><input type="text" id="fwCustomUrl" spellcheck="false" placeholder="https://…" /></div>
+            <div class="field-group"><label for="fwCustomSha">SHA-256</label><input type="text" id="fwCustomSha" spellcheck="false" /></div>
+          </div>
+          <div class="notice warn" id="fwPickWarn"></div>
+          <div class="btn-row"><button class="btn-primary" id="fwPickStart">Start</button></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">Actions</div>
+        <div id="fwActions"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          Upgrading stock with OpenWrt installed
+          <div class="actions"><button class="btn-ghost" id="fwTripReset">Reset</button></div>
+        </div>
+        <div class="card-body">
+          <ol class="fw-steps" id="fwSteps"></ol>
+          <p class="hint">Stock always writes an upgrade to the slot it is not running from, and kernel1 holds OpenWrt,
+            so this trip takes OpenWrt out and puts it back with its settings, which wait in this browser.
+            TFTP recovery is the alternative that keeps OpenWrt: it always writes kernel0.</p>
         </div>
       </section>
     </div>
@@ -1701,14 +1795,14 @@ function setConnected(yes, name) {
   $('deviceSummary').classList.toggle('section-hidden', !yes);
   $('connHeader').textContent = yes ? 'Device' : 'Connect to a router';
   if (yes) $('devName').textContent = name || 'UTR';
-  else { stopPolling(); lastStatus = null; resetDashboard(); }
+  else { stopPolling(); lastStatus = null; resetDashboard(); fwForget(); }
   updateDeviceMeta();
   $('btnConnect').disabled = false;
   updatePending();
   syncSshSwitch();
 
   // Tabs that need a live session; Log stays available after a disconnect.
-  const sessionTabs = ['dashboard', 'config', 'shell']
+  const sessionTabs = ['dashboard', 'config', 'shell', 'firmware']
     .map(t => document.querySelector(`.tab[data-tab="${t}"]`));
 
   if (yes) {
@@ -1738,7 +1832,8 @@ let activeTab = 'dashboard';
 function showTab(name) {
   activeTab = name;
   document.querySelectorAll('.tab[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-  ['dashboard','config','shell','log'].forEach(p => $('panel-'+p).classList.toggle('section-hidden', p !== name));
+  ['dashboard','config','shell','firmware','log'].forEach(p => $('panel-'+p).classList.toggle('section-hidden', p !== name));
+  if (name === 'firmware' && session && fwLoadedFor !== session) fwRefresh();
   if (name === 'log') { logUnseen = 0; $('logBadge').classList.add('section-hidden'); }
   if (name === 'shell') setTimeout(() => $('shellCmd').focus(), 30);
 }
@@ -2657,6 +2752,858 @@ $('btnClearLog').addEventListener('click', () => logEl.innerHTML = '');
 $('btnCopyLog').addEventListener('click', () => {
   navigator.clipboard.writeText(logEl.innerText).then(() => toast('Log copied', 'ok'));
 });
+
+// FW-CORE-BEGIN
+// ============================================================
+// FIRMWARE CORE: no DOM, no globals beyond crypto/TextEncoder. Everything
+// that talks to the router goes through a `shell(cmd)` function and everything
+// that talks to the internet through `fetchJSON(url)`, so this block can be
+// run under node against simulated routers (web/test/fw-core.test.mjs).
+//
+// Two very different routers answer here:
+//  - OpenWrt with utrd: utrd answers "utr-fw ..." with JSON and does the work
+//    itself (download, sysupgrade, boot selector).
+//  - Stock firmware: a real shell. Nothing is installed on it; the client
+//    uploads small scripts (in chunks, as the config writer does) and runs
+//    stock's own tools: curl, sha256sum, ubiformat, fw_setenv, mtd, and
+//    syswrapper.sh fwupdate for stock's own upgrades.
+//
+// The flash has two slots. Stock runs from kernel0, the OpenWrt port from
+// kernel1, and a small NOR block ("bs") picks one at boot: first byte 0xff
+// means kernel1 via the "bootopenwrt" chooser in the u-boot environment.
+// ============================================================
+
+const FW = {};
+
+// Every command has to fit a 512-byte Web Bluetooth write once framed and
+// encrypted; the config writer's 320-character chunks are known to.
+FW.CHUNK = 320;
+FW.MAX_CMD = 380;
+
+FW.SELECTOR_MAGIC = '2be84da3';
+
+FW.STOCK_API = 'https://fw-update.ui.com/api/firmware?filter=eq~~product~~unifi-firmware&filter=eq~~platform~~';
+FW.SNAPSHOT_PROFILES = 'https://downloads.openwrt.org/snapshots/targets/ipq40xx/generic/profiles.json';
+FW.SNAPSHOT_BASE = 'https://downloads.openwrt.org/snapshots/targets/ipq40xx/generic/';
+
+// The bootcmd and chooser the OpenWrt port's install puts in the u-boot
+// environment (see the UTR / UTR-LR commit messages). Kept byte-identical.
+FW.BOOTCMD_REAL = 'sf probe; sf read 0x80000000 0x2f0000 0x800; mw.b 0x80010000 0xff 0x1; ' +
+  'if cmp.b 0x80000000 0x80010000 0x1; then echo "Slot 1 / kernel1"; run bootopenwrt; ' +
+  'else echo "Slot 0 / kernel0"; bootubnt; fi';
+FW.BOOTOPENWRT = 'fdt addr ${fdtcontroladdr}; fdt rm /signature; bootubnt';
+
+FW.isSha256 = s => /^[0-9a-f]{64}$/.test(s || '');
+FW.isMd5 = s => /^[0-9a-f]{32}$/.test(s || '');
+// URLs go into shell scripts and utrd command lines, so only characters that
+// need no quoting are accepted: no quotes, spaces, '>', '|', '$' or '`'.
+FW.isSafeUrl = s => /^https?:\/\/[A-Za-z0-9._~:\/?&=%+@,-]+$/.test(s || '');
+
+FW.hex = buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+FW.sha256Hex = async (bytes) => FW.hex(await crypto.subtle.digest('SHA-256', bytes));
+FW.b64 = (bytes) => {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+FW.unb64 = (s) => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+
+// "6.6.118+15541" -> comparable tuple.
+FW.versionKey = (fw) => [fw.version_major || 0, fw.version_minor || 0, fw.version_patch || 0, fw.version_build || 0];
+FW.cmpVersion = (a, b) => {
+  const x = FW.versionKey(a), y = FW.versionKey(b);
+  for (let i = 0; i < 4; i++) if (x[i] !== y[i]) return y[i] - x[i];
+  return 0;
+};
+
+// ---------------------------------------------------------------------------
+// Detecting what the router runs
+
+// Two commands, each under FW.MAX_CMD, that print key=value lines describing
+// a stock unit. Everything they need is in stock's busybox, which has
+// hexdump but no od.
+//
+// Neither reads a firmware slot. On stock, whether OpenWrt is installed is
+// read from the u-boot environment: installing OpenWrt puts the dual-slot
+// chooser there and removing it takes the chooser out. A slot's contents
+// cannot be told cheaply from the shell anyway -- an erased slot is full of
+// UBI headers, and stock's own data can sit anywhere in its 64 MB -- so the
+// one place that must know, the switch to OpenWrt, scans kernel1 itself.
+FW.STOCK_INFO_CMD =
+  'echo "cmdline=$(cat /proc/cmdline)";echo "version=$(cat /usr/lib/version)";' +
+  'grep systemid= /proc/ubnthal/system.info;d=$(grep -w \'"bs"\' /proc/mtd|cut -d: -f1);' +
+  'echo "bs=$d:$(hexdump -v -n 8 -e \'8/1 "%02x"\' /dev/$d)"';
+FW.STOCK_INFO_CMD2 =
+  'echo "chooser=$(fw_printenv -n bootcmd_real 2>/dev/null|grep -c bootopenwrt)";' +
+  'echo "bootopenwrt=$(fw_printenv -n bootopenwrt 2>/dev/null|grep -c bootubnt)";' +
+  'echo "tmpfree=$(df -k /tmp|tail -1|awk \'{print $4}\')";' +
+  'echo -n "tools=";for c in setsid curl sha256sum md5sum ubiformat ubidetach mtd fw_setenv base64 hexdump;' +
+  'do command -v $c >/dev/null&&echo -n "$c ";done;echo';
+
+FW.platformForSysid = (sysid) => sysid ? 'UTR' + sysid.toUpperCase() : '';
+FW.profileForSysid = (sysid) => ({ ea06: 'ubnt_utr', ea08: 'ubnt_utr-lr' })[(sysid || '').toLowerCase()] || '';
+
+FW.classifySelector = (hex) => {
+  if (!hex || hex.length !== 16 || hex.slice(8) !== FW.SELECTOR_MAGIC) return 'unknown';
+  return hex.startsWith('ff') ? 'openwrt' : 'stock';
+};
+
+FW.parseStockInfo = (text) => {
+  const kv = {};
+  for (const line of text.split('\n')) {
+    const i = line.indexOf('=');
+    if (i > 0) kv[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  }
+  const [bsMtd, bsHex] = (kv.bs || '').split(':');
+  const bs = { mtd: bsMtd || '', head: (bsHex || '').toLowerCase() };
+  const m = /ubntbootid=(\d+)/.exec(kv.cmdline || '');
+  const sysid = (kv.systemid || '').toLowerCase();
+  const st = {
+    os: 'stock',
+    version: kv.version || '',
+    running_slot: m ? Number(m[1]) : -1,
+    sysid,
+    stock_platform: FW.platformForSysid(sysid),
+    profile: FW.profileForSysid(sysid),
+    selector_hex: bs.head,
+    selector: FW.classifySelector(bs.head),
+    bs_mtd: bs.mtd,
+  };
+  if ('chooser' in kv) {
+    st.chooser = Number(kv.chooser) > 0 && Number(kv.bootopenwrt) > 0;
+    st.tmp_free = Number(kv.tmpfree || 0) * 1024;
+    st.tools = (kv.tools || '').split(/\s+/).filter(Boolean);
+  }
+  return st;
+};
+
+// Ask the router what it is. utrd answers utr-fw with JSON; an older utrd
+// answers "[utrd] received: ..."; stock's shell answers "not found".
+FW.detect = async (shell) => {
+  const out = (await shell('utr-fw info')).trim();
+  if (out.startsWith('{')) {
+    const info = JSON.parse(out);
+    if (info.os === 'openwrt') return FW.normalizeOpenWrt(info);
+  }
+  if (out.startsWith('[utrd]')) return { os: 'openwrt', legacy: true };
+  const text = [FW.STOCK_INFO_CMD, FW.STOCK_INFO_CMD2];
+  const outs = [];
+  for (const cmd of text) outs.push(await shell(cmd));
+  return FW.parseStockInfo(outs.join('\n'));
+};
+
+// utrd reports each slot's volume names; reduce them to what the actions need.
+FW.normalizeOpenWrt = (info) => {
+  const slots = {};
+  for (const [name, s] of Object.entries(info.slots || {})) {
+    const vols = s.volumes || [];
+    slots[name] = { mtd: s.mtd, ubi: !!s.ubi, volumes: vols, firmware: vols.length > 0, openwrt: vols.includes('rootfs_data') };
+  }
+  return { ...info, slots };
+};
+
+// ---------------------------------------------------------------------------
+// What can be done from here
+
+FW.hasTools = (st, tools) => !st.tools || tools.every(t => st.tools.includes(t));
+
+// The actions on offer for a detected router, each enabled or not with the
+// reason. Pure, so every state can be tested without a router.
+FW.actions = (st) => {
+  const a = {};
+  const off = (why) => ({ enabled: false, reason: why });
+  const on = (why = '') => ({ enabled: true, reason: why });
+
+  if (st.os === 'openwrt') {
+    if (st.legacy) {
+      const why = 'This OpenWrt runs a utrd without firmware support; update utrd first.';
+      return { upgradeOpenWrt: off(why), switchToStock: off(why), backup: off(why), restore: off(why) };
+    }
+    const job = st.job || { state: 'idle' };
+    a.upgradeOpenWrt = job.state === 'installing' ? off('sysupgrade is running.') : on();
+    if (st.running_slot !== 1) a.switchToStock = off(`OpenWrt did not boot from kernel1 (ubntbootid=${st.running_slot}).`);
+    else if (!st.slots?.kernel0?.firmware) a.switchToStock = off('kernel0 holds no firmware.');
+    else if (!st.chooser) a.switchToStock = off('The u-boot chooser is missing; stock could not switch back.');
+    else if (st.selector === 'unknown') a.switchToStock = off('The boot selector holds an unknown value.');
+    else if (job.state === 'installing') a.switchToStock = off('sysupgrade is running.');
+    else a.switchToStock = on();
+    a.backup = on();
+    a.restore = job.state === 'installing' ? off('sysupgrade is running.') : on();
+    return a;
+  }
+
+  // Stock. OpenWrt counts as installed while the u-boot chooser is there.
+  const inK0 = st.running_slot === 0;
+  const openwrtInK1 = inK0 && !!st.chooser;
+  const scriptTools = ['base64', 'sha256sum'];
+
+  if (!inK0) a.switchToOpenWrt = off('Stock is running from kernel1, so OpenWrt is not installed.');
+  else if (!st.chooser) a.switchToOpenWrt = off('OpenWrt is not installed: the u-boot boot chooser is not there.');
+  else if (st.selector === 'unknown') a.switchToOpenWrt = off('The boot selector holds an unknown value.');
+  else if (!FW.hasTools(st, [...scriptTools, 'mtd', 'hexdump'])) a.switchToOpenWrt = off('Stock lacks a tool this needs.');
+  else a.switchToOpenWrt = on('kernel1 is checked for OpenWrt before the boot selector moves.');
+
+  if (openwrtInK1) a.upgradeStock = off('Stock writes its upgrade to kernel1, where OpenWrt is. Remove OpenWrt first (see the guide below), or use TFTP recovery to keep it.');
+  else if (!FW.hasTools(st, [...scriptTools, 'curl', 'md5sum'])) a.upgradeStock = off('Stock lacks a tool this needs.');
+  else a.upgradeStock = on(inK0 ? 'The upgrade is written to kernel1 and boots from there.' : 'The upgrade is written to kernel0 and boots from there.');
+
+  if (!inK0) a.installOpenWrt = off('Stock must be running from kernel0. Upgrade stock once more to move it there.');
+  else if (!FW.hasTools(st, [...scriptTools, 'curl', 'ubiformat', 'ubidetach', 'mtd', 'fw_setenv', 'hexdump'])) a.installOpenWrt = off('Stock lacks a tool this needs.');
+  else a.installOpenWrt = on(openwrtInK1 ? 'This replaces the OpenWrt already in kernel1, without its settings.' : '');
+
+  if (!openwrtInK1) a.removeOpenWrt = off('OpenWrt is not installed.');
+  else if (!FW.hasTools(st, ['ubiformat', 'ubidetach', 'fw_setenv'])) a.removeOpenWrt = off('Stock lacks a tool this needs.');
+  else a.removeOpenWrt = on();
+  return a;
+};
+
+// The steps to upgrade stock while keeping OpenWrt (its settings ride along
+// in the browser), and which one this router is at.
+FW.ROUND_TRIP = [
+  { id: 'backup', os: 'openwrt', text: 'On OpenWrt: back up its settings to this browser.' },
+  { id: 'toStock', os: 'openwrt', text: 'On OpenWrt: switch to stock.' },
+  { id: 'remove', os: 'stock', text: 'On stock (kernel0): remove OpenWrt, freeing kernel1.' },
+  { id: 'stock1', os: 'stock', text: 'On stock (kernel0): upgrade stock. It is written to kernel1 and boots there.' },
+  { id: 'stock2', os: 'stock', text: 'On stock (kernel1): upgrade stock again, which moves it back to kernel0.' },
+  { id: 'install', os: 'stock', text: 'On stock (kernel0): install OpenWrt.' },
+  { id: 'restore', os: 'openwrt', text: 'On OpenWrt: restore the settings backup.' },
+];
+
+// The router says most of where the trip is: OpenWrt still installed (the
+// chooser), or stock running from kernel1. What it cannot say is whether a
+// stock unit back in kernel0 has done the two upgrades yet, so the browser
+// remembers having seen it in kernel1 (seenK1), and whether a trip was
+// started at all, which on OpenWrt tells its start from its end (started).
+FW.roundTripStep = (st, { haveBackup = false, started = false, seenK1 = false } = {}) => {
+  if (st.os === 'openwrt') {
+    if (started) return 'restore';
+    return haveBackup ? 'toStock' : 'backup';
+  }
+  if (st.running_slot === 1) return 'stock2';
+  if (st.chooser) return 'remove';
+  return seenK1 ? 'install' : 'stock1';
+};
+
+// ---------------------------------------------------------------------------
+// Image catalogues
+
+FW.stockVersions = async (fetchJSON, platform) => {
+  const data = await fetchJSON(FW.STOCK_API + encodeURIComponent(platform) + '&sort=-version&limit=20');
+  const list = (data?._embedded?.firmware || []).map(f => ({
+    version: (f.version || '').replace(/^v/, ''),
+    channel: f.channel || '',
+    url: f._links?.data?.href || '',
+    md5: (f.md5 || '').toLowerCase(),
+    sha256: (f.sha256_checksum || '').toLowerCase(),
+    size: f.file_size || 0,
+    created: f.created || '',
+    version_major: f.version_major, version_minor: f.version_minor,
+    version_patch: f.version_patch, version_build: f.version_build,
+  })).filter(f => FW.isSafeUrl(f.url) && FW.isSha256(f.sha256) && FW.isMd5(f.md5));
+  return list.sort(FW.cmpVersion);
+};
+
+// type: 'sysupgrade' (from OpenWrt) or 'factory' (from stock).
+FW.imageName = (profile, type) =>
+  `openwrt-ipq40xx-generic-${profile}-squashfs-${type === 'factory' ? 'factory.ubi' : 'sysupgrade.bin'}`;
+
+FW.snapshotImages = async (fetchJSON, profile, type) => {
+  const data = await fetchJSON(FW.SNAPSHOT_PROFILES);
+  const p = data?.profiles?.[profile];
+  if (!p) return [];
+  const img = (p.images || []).find(i => i.type === type);
+  if (!img || !FW.isSha256(img.sha256)) return [];
+  return [{
+    label: `Snapshot ${data.version_code || ''}`.trim(),
+    url: FW.SNAPSHOT_BASE + img.name, sha256: img.sha256, size: 0, name: img.name,
+  }];
+};
+
+FW.githubImages = async (fetchJSON, repo, profile, type) => {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo || '')) throw new Error('Repository must be owner/name');
+  const rels = await fetchJSON(`https://api.github.com/repos/${repo}/releases?per_page=10`);
+  const want = FW.imageName(profile, type);
+  const out = [];
+  for (const r of rels || []) {
+    const a = (r.assets || []).find(x => x.name === want);
+    const sum = (a?.digest || '').replace(/^sha256:/, '').toLowerCase();
+    if (!a || !FW.isSha256(sum) || !FW.isSafeUrl(a.browser_download_url)) continue;
+    out.push({ label: `${r.tag_name} (${(r.published_at || '').slice(0, 10)})`, url: a.browser_download_url, sha256: sum, size: a.size || 0, name: a.name });
+  }
+  return out;
+};
+
+// ---------------------------------------------------------------------------
+// OpenWrt: utr-fw
+
+FW.utrfw = async (shell, args, timeout) => {
+  const out = (await shell(`utr-fw ${args}`, timeout)).trim();
+  let m;
+  try { m = JSON.parse(out); } catch { throw new Error(`utr-fw ${args.split(' ')[0]}: unexpected answer: ${out.slice(0, 200)}`); }
+  if (!m.ok) throw new Error(m.error || `utr-fw ${args.split(' ')[0]} failed`);
+  return m;
+};
+
+FW.openwrtFetch = (shell, url, sha256) => {
+  if (!FW.isSafeUrl(url)) throw new Error('That URL has characters that are not allowed.');
+  if (!FW.isSha256(sha256)) throw new Error('The SHA-256 must be 64 hex digits.');
+  return FW.utrfw(shell, `fetch ${url} ${sha256}`);
+};
+
+FW.backup = async (shell) => {
+  const m = await FW.utrfw(shell, 'backup', 60000);
+  const data = FW.unb64(m.data);
+  if (await FW.sha256Hex(data) !== m.sha256 || data.length !== m.size) throw new Error('The backup arrived damaged.');
+  return { data, sha256: m.sha256 };
+};
+
+// Upload a settings archive in offset-tagged chunks, then restore it. A chunk
+// whose reply was lost is simply sent again.
+FW.restore = async (shell, data, { reboot = true, onProgress = () => {} } = {}) => {
+  const sum = await FW.sha256Hex(data);
+  await FW.utrfw(shell, `restore-begin ${data.length} ${sum}`);
+  const raw = FW.CHUNK / 4 * 3; // base64 of this many bytes is FW.CHUNK characters
+  for (let off = 0; off < data.length; off += raw) {
+    const part = FW.b64(data.subarray(off, Math.min(off + raw, data.length)));
+    let tries = 0;
+    for (;;) {
+      try { await FW.utrfw(shell, `restore-put ${off} ${part}`); break; } catch (e) {
+        if (++tries >= 3) throw e;
+      }
+    }
+    onProgress(Math.min(off + raw, data.length), data.length);
+  }
+  return FW.utrfw(shell, `restore-commit${reboot ? '' : ' --no-reboot'}`, 60000);
+};
+
+// ---------------------------------------------------------------------------
+// Stock: scripts uploaded and run detached
+
+FW.SCRIPT_DIR = '/tmp';
+
+// Write `text` to `path` in chunks, then check it arrived intact.
+FW.stageScript = async (shell, path, text, onProgress = () => {}) => {
+  const bytes = new TextEncoder().encode(text);
+  const b64 = FW.b64(bytes);
+  const tmp = `${path}.b64`;
+  await shell(`rm -f ${path} ${tmp} && : > ${tmp}`);
+  const n = Math.ceil(b64.length / FW.CHUNK);
+  for (let i = 0; i < n; i++) {
+    await shell(`printf %s '${b64.slice(i * FW.CHUNK, (i + 1) * FW.CHUNK)}' >> ${tmp}`);
+    onProgress(i + 1, n);
+  }
+  const want = await FW.sha256Hex(bytes);
+  const got = (await shell(`base64 -d < ${tmp} > ${path} && rm -f ${tmp} && sha256sum ${path}`)).trim().split(/\s+/)[0];
+  if (got !== want) throw new Error(`The script did not arrive intact (${got || 'no checksum'}).`);
+};
+
+// Start a staged script in the background, logging to `log`. setsid keeps it
+// running after the shell that started it is gone.
+FW.startScript = (shell, st, path, log) => {
+  const detach = FW.hasTools(st, ['setsid']) && st.tools ? 'setsid ' : '';
+  return shell(`rm -f ${log}; (${detach}sh ${path} </dev/null >${log} 2>&1 &)`);
+};
+
+// A script's log ends in "DONE ..." or "FAIL ..."; "STEP name" lines say
+// where it is; "SIZE n" lines report a download.
+FW.parseScriptLog = (text) => {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const out = { step: '', done: false, failed: '', size: 0, lines };
+  for (const l of lines) {
+    if (l.startsWith('STEP ')) out.step = l.slice(5);
+    else if (l.startsWith('DONE')) out.done = true;
+    else if (l.startsWith('FAIL ')) out.failed = l.slice(5);
+  }
+  return out;
+};
+
+// The progress line a download reports: the partial file's size.
+FW.pollScript = async (shell, log, file) => {
+  const text = await shell(`cat ${log} 2>/dev/null; echo "SIZE $(wc -c < ${file} 2>/dev/null || echo 0)"`);
+  const st = FW.parseScriptLog(text);
+  const m = /SIZE (\d+)/.exec(text);
+  st.size = m ? Number(m[1]) : 0;
+  return st;
+};
+
+const sq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
+
+// Shared preamble: fail loudly, and the slot helpers.
+FW.SCRIPT_HEAD = `#!/bin/sh
+fail() { echo "FAIL $*"; exit 1; }
+step() { echo "STEP $*"; }
+mtdof() { grep -w "\\"$1\\"" /proc/mtd | cut -d: -f1; }
+head8() { hexdump -v -n 8 -e '8/1 "%02x"' /dev/$1; }
+`;
+
+// Point the selector's first byte at a slot, keeping the vendor's tail, and
+// read it back. $1 is "openwrt" or "stock".
+FW.SCRIPT_SELECTOR = `
+select_slot() {
+  BS=$(mtdof bs); [ -n "$BS" ] || fail "no bs partition"
+  CUR=$(head8 $BS)
+  [ "\${CUR#????????}" = "${FW.SELECTOR_MAGIC}" ] || fail "the boot selector holds $CUR, which this does not write"
+  if [ "$1" = openwrt ]; then FIRST='\\377\\377\\377\\377'; WANT=ffffffff; else FIRST='\\000\\000\\000\\000'; WANT=00000000; fi
+  [ "\${CUR%????????}" = "$WANT" ] && return 0
+  { printf "$FIRST"; dd if=/dev/$BS bs=1 skip=4 count=4 2>/dev/null; } > /tmp/utr-bs.bin
+  mtd -e bs write /tmp/utr-bs.bin bs >/dev/null 2>&1 || fail "mtd could not write the boot selector"
+  rm -f /tmp/utr-bs.bin
+  [ "$(head8 $BS)" = "\${WANT}${FW.SELECTOR_MAGIC}" ] || fail "the boot selector read back as $(head8 $BS)"
+}
+`;
+
+FW.switchToOpenWrtScript = () => FW.SCRIPT_HEAD + FW.SCRIPT_SELECTOR + `
+step check
+grep -q ubntbootid=0 /proc/cmdline || fail "stock is not running from kernel0"
+K1=$(mtdof kernel1); [ -n "$K1" ] || fail "no kernel1 partition"
+step scan
+# The whole slot: the volume table that names rootfs_data can be anywhere.
+dd if=/dev/$K1 bs=128k 2>/dev/null | grep -q rootfs_data || fail "kernel1 does not hold OpenWrt"
+fw_printenv -n bootcmd_real 2>/dev/null | grep -q bootopenwrt || fail "the u-boot chooser is not installed"
+fw_printenv -n bootopenwrt 2>/dev/null | grep -q bootubnt || fail "bootopenwrt is not set"
+step select
+select_slot openwrt
+echo "DONE rebooting"
+sleep 2
+reboot
+`;
+
+FW.removeOpenWrtScript = () => FW.SCRIPT_HEAD + FW.SCRIPT_SELECTOR + `
+step check
+grep -q ubntbootid=0 /proc/cmdline || fail "stock is not running from kernel0"
+K1=$(mtdof kernel1); [ -n "$K1" ] || fail "no kernel1 partition"
+step select
+select_slot stock
+step erase
+ubidetach -p /dev/$K1 >/dev/null 2>&1
+ubiformat /dev/$K1 -y >/dev/null 2>&1 || fail "ubiformat could not erase kernel1"
+step env
+fw_setenv bootcmd_real bootubnt || fail "fw_setenv failed"
+fw_setenv bootopenwrt
+[ "$(fw_printenv -n bootcmd_real 2>/dev/null)" = bootubnt ] || fail "the u-boot environment did not take"
+echo "DONE"
+`;
+
+// Download, check, then hand to stock's own upgrader as a local file with its
+// MD5, which is the path that checks the file before writing it.
+FW.upgradeStockScript = ({ url, sha256, md5 }) => {
+  if (!FW.isSafeUrl(url) || !FW.isSha256(sha256) || !FW.isMd5(md5)) throw new Error('Bad firmware URL or checksum.');
+  return FW.SCRIPT_HEAD + `
+IMG=/tmp/utr-stock.bin
+step check
+if grep -q ubntbootid=0 /proc/cmdline && fw_printenv -n bootcmd_real 2>/dev/null | grep -q bootopenwrt; then
+  fail "OpenWrt is installed in kernel1; remove it first"
+fi
+step download
+rm -f $IMG
+curl -s -L --retry 2 --connect-timeout 15 -o $IMG ${sq(url)} || fail "the download failed"
+step verify
+[ "$(sha256sum $IMG | cut -d' ' -f1)" = "${sha256}" ] || { rm -f $IMG; fail "the download's SHA-256 does not match"; }
+step upgrade
+syswrapper.sh fwupdate $IMG --md5sum=${md5}
+rc=$?
+[ $rc = 0 ] || fail "syswrapper.sh fwupdate exited $rc"
+echo "DONE the upgrade is written; stock reboots into it"
+`;
+};
+
+// Install OpenWrt into kernel1 from stock. Unlike the manual steps, the slot
+// is written and checked before the boot selector moves, so a failure part way
+// leaves stock booting as before.
+FW.installOpenWrtScript = ({ url, sha256 }) => {
+  if (!FW.isSafeUrl(url) || !FW.isSha256(sha256)) throw new Error('Bad image URL or checksum.');
+  return FW.SCRIPT_HEAD + FW.SCRIPT_SELECTOR + `
+IMG=/tmp/utr-factory.ubi
+step check
+grep -q ubntbootid=0 /proc/cmdline || fail "stock is not running from kernel0"
+K1=$(mtdof kernel1); [ -n "$K1" ] || fail "no kernel1 partition"
+step download
+rm -f $IMG
+curl -s -L --retry 2 --connect-timeout 15 -o $IMG ${sq(url)} || fail "the download failed"
+step verify
+[ "$(sha256sum $IMG | cut -d' ' -f1)" = "${sha256}" ] || { rm -f $IMG; fail "the download's SHA-256 does not match"; }
+[ "$(dd if=$IMG bs=4 count=1 2>/dev/null)" = "UBI#" ] || { rm -f $IMG; fail "that is not a UBI image (a factory.ubi is needed)"; }
+step flash
+ubidetach -p /dev/$K1 >/dev/null 2>&1
+ubiformat /dev/$K1 -y -f $IMG >/dev/null 2>&1 || fail "ubiformat could not write kernel1"
+rm -f $IMG
+step env
+fw_setenv -s - <<'EOF' || fail "fw_setenv failed"
+bootopenwrt ${FW.BOOTOPENWRT}
+bootcmd_real ${FW.BOOTCMD_REAL}
+EOF
+fw_printenv -n bootcmd_real 2>/dev/null | grep -q bootopenwrt || fail "the u-boot environment did not take"
+step select
+select_slot openwrt
+echo "DONE rebooting"
+sleep 2
+reboot
+`;
+};
+// FW-CORE-END
+
+// ============================================================
+// Firmware tab: the UI over the firmware core above.
+// ============================================================
+const fwShell = (cmd, timeout = 30000) => session.shell(cmd, timeout);
+let fwState = null;
+let fwPollTimer = null;
+let fwPicker = null;      // { mode, list }
+let fwLoadedFor = null;   // the session the state was read on
+
+const FW_LABELS = {
+  upgradeOpenWrt: ['Upgrade OpenWrt', 'Download an OpenWrt image on the router, check it, then install it with sysupgrade.'],
+  switchToStock: ['Switch to stock', 'Boot the stock firmware in kernel0. OpenWrt stays in kernel1, so you can switch back from stock.'],
+  backup: ['Back up settings', 'Save OpenWrt\'s settings (sysupgrade -b) to this browser and as a file.'],
+  restore: ['Restore settings', 'Upload a settings backup and restore it (sysupgrade -r), then reboot.'],
+  switchToOpenWrt: ['Switch to OpenWrt', 'Boot the OpenWrt in kernel1.'],
+  upgradeStock: ['Upgrade stock', 'Download a stock release from Ubiquiti and install it with stock\'s own updater.'],
+  installOpenWrt: ['Install OpenWrt', 'Write an OpenWrt factory image to kernel1 and boot it. Stock stays in kernel0.'],
+  removeOpenWrt: ['Remove OpenWrt', 'Erase kernel1 and the boot chooser, so stock can upgrade itself. OpenWrt\'s settings are lost unless backed up.'],
+};
+
+function fwSavedBackup() {
+  const b = LS.getJSON('fwBackup', null);
+  return b && b.b64 ? b : null;
+}
+
+async function fwRefresh(quiet = false) {
+  const work = async () => {
+    fwState = await FW.detect(fwShell);
+    fwLoadedFor = session;
+    renderFw();
+    if (fwState.os === 'openwrt' && !fwState.legacy && ['starting', 'downloading', 'verifying', 'ready'].includes(fwState.job?.state)) fwStartJobPoll();
+  };
+  if (quiet) { try { await work(); } catch (e) { log(`Firmware state: ${e.message}`, 'warn'); } return; }
+  return run('Reading firmware state…', work);
+}
+
+function fwSlotText(s) {
+  if (!s) return '—';
+  if (s.openwrt) return 'OpenWrt';
+  if (s.firmware) return fwState?.os === 'openwrt' && s.volumes?.length ? `Firmware (${s.volumes.join(', ')})` : 'Firmware';
+  return s.ubi ? 'Empty (formatted)' : 'Empty';
+}
+
+function renderFw() {
+  const st = fwState;
+  if (!st) return;
+  const rows = [];
+  const row = (k, v) => rows.push(`<div class="fw-k">${escHtml(k)}</div><div class="fw-v">${v}</div>`);
+  if (st.os === 'openwrt' && st.legacy) {
+    row('Running', 'OpenWrt');
+    $('fwState').innerHTML = rows.join('');
+    fwNotice('This router\'s utrd predates firmware management. Update utrd (or the image) to use this tab.', 'warn');
+  } else {
+    row('Running', st.os === 'openwrt' ? `OpenWrt <span class="mono">${escHtml(st.release || '')}</span>` : `Stock <span class="mono">${escHtml(st.version || '')}</span>`);
+    row('Model', `${escHtml(st.model || st.profile || '')} <span class="hint mono">${escHtml(st.profile || '')} · ${escHtml(st.stock_platform || '')}</span>`);
+    row('Booted from', st.running_slot >= 0 ? `kernel${st.running_slot}` : 'unknown');
+    row('Boot selector', `${escHtml(st.selector)} <span class="hint mono">${escHtml(st.selector_hex || '')}</span>`);
+    if (st.os === 'openwrt') {
+      row('kernel0', escHtml(fwSlotText(st.slots?.kernel0)));
+      row('kernel1', escHtml(fwSlotText(st.slots?.kernel1)));
+      row('Boot chooser', st.chooser ? 'installed' : 'not installed');
+    } else {
+      row('OpenWrt', st.chooser ? 'installed in kernel1 (the boot chooser is set up)' : 'not installed');
+    }
+    if (st.tmp_free) row('Free in /tmp', fmtBytes(st.tmp_free));
+    $('fwState').innerHTML = rows.join('');
+    fwNotice('', '');
+  }
+  $('fwMeta').textContent = st.os === 'openwrt' ? 'OpenWrt' : 'Stock firmware';
+
+  // Actions
+  const acts = FW.actions(st);
+  $('fwActions').innerHTML = Object.entries(acts).map(([id, a]) => {
+    const [title, desc] = FW_LABELS[id];
+    const danger = ['removeOpenWrt'].includes(id);
+    return `<div class="setting"><div><div class="title">${escHtml(title)}</div>` +
+      `<div class="desc">${escHtml(desc)}${a.reason ? `<br><span class="${a.enabled ? 'hint' : 'fw-why'}">${escHtml(a.reason)}</span>` : ''}</div></div>` +
+      `<button class="${danger ? 'btn-danger' : 'btn-secondary'} btn-sm" data-fw-action="${id}" ${a.enabled ? '' : 'disabled'}>${escHtml(title)}</button></div>`;
+  }).join('');
+
+  // Round trip guide
+  if (st.os === 'stock' && st.running_slot === 1 && LS.get('fwTrip', '') === '1') LS.set('fwTripK1', '1');
+  const at = FW.roundTripStep(st, {
+    haveBackup: !!fwSavedBackup(), started: LS.get('fwTrip', '') === '1', seenK1: LS.get('fwTripK1', '') === '1',
+  });
+  $('fwSteps').innerHTML = FW.ROUND_TRIP.map(s =>
+    `<li class="${s.id === at ? 'fw-here' : ''}">${escHtml(s.text)}${s.id === at ? ' <span class="chip">you are here</span>' : ''}</li>`).join('');
+
+  fwRenderJob(st.job);
+}
+
+function fwNotice(text, kind) {
+  const n = $('fwNotice');
+  n.textContent = text;
+  n.className = `notice ${kind || ''}`;
+  n.classList.toggle('section-hidden', !text);
+}
+
+// ---------- OpenWrt download job ----------
+function fwRenderJob(job) {
+  const card = $('fwJobCard');
+  if (!job || job.state === 'idle' || fwState?.os !== 'openwrt') { card.classList.add('section-hidden'); return; }
+  card.classList.remove('section-hidden');
+  const pct = job.total > 0 ? Math.round(100 * job.bytes / job.total) : 0;
+  let text = {
+    starting: 'Starting the download…',
+    downloading: `Downloading: ${fmtBytes(job.bytes)}${job.total ? ` of ${fmtBytes(job.total)}` : ''}`,
+    verifying: 'Checking the image with sysupgrade -T…',
+    ready: 'The image is downloaded and checked.',
+    failed: `Failed: ${job.error || 'unknown error'}`,
+    installing: 'sysupgrade is installing the image. The router reboots when it is done (a few minutes); reconnect then.',
+  }[job.state] || job.state;
+  const v = job.image?.version;
+  // Images with a compat_version name their boards in new_supported_devices;
+  // the old list then holds messages for older sysupgrades.
+  const boards = job.image?.new_supported_devices || job.image?.supported_devices || [];
+  if (job.state === 'ready' && v) text += ` ${v.dist || ''} ${v.version || ''} ${v.revision || ''} for ${boards.join(', ')}`;
+  if (job.state === 'ready' && job.image?.compat_version) text += ` (compat ${job.image.compat_version})`;
+  if (job.state === 'ready' && job.wipe_required) text += ` It installs only without the current settings: ${job.check}`;
+  $('fwJobText').textContent = text;
+  if (job.wipe_required) $('fwKeepSettings').checked = false;
+  $('fwKeepSettings').disabled = !!job.wipe_required;
+  $('fwJobBar').style.width = `${job.state === 'ready' || job.state === 'installing' ? 100 : pct}%`;
+  $('fwJobCancel').classList.toggle('section-hidden', ['installing'].includes(job.state));
+  $('fwJobCancel').textContent = job.state === 'failed' ? 'Dismiss' : 'Cancel';
+  $('fwJobInstall').classList.toggle('section-hidden', job.state !== 'ready');
+  $('fwKeepRow').classList.toggle('section-hidden', job.state !== 'ready');
+}
+
+function fwStartJobPoll() {
+  clearInterval(fwPollTimer);
+  fwPollTimer = setInterval(async () => {
+    if (!session || busy) return;
+    try {
+      const m = await FW.utrfw((c) => session.shell(c, 15000, { quiet: true }), 'status');
+      if (fwState) fwState.job = m.job;
+      fwRenderJob(m.job);
+      if (!['starting', 'downloading', 'verifying'].includes(m.job.state)) fwStopJobPoll();
+    } catch (e) { /* the next tick tries again */ }
+  }, 2000);
+}
+function fwStopJobPoll() { clearInterval(fwPollTimer); fwPollTimer = null; }
+
+$('fwJobCancel').addEventListener('click', () => run('Cancelling…', async () => {
+  await FW.utrfw(fwShell, 'cancel');
+  fwStopJobPoll();
+  await fwRefresh(true);
+}));
+
+$('fwJobInstall').addEventListener('click', () => {
+  const keep = $('fwKeepSettings').checked;
+  if (!confirm(`Install this image with sysupgrade${keep ? ', keeping settings' : ' and ERASE all settings'}?\n\n` +
+    'The router reboots when it is done and the Bluetooth link drops. Make sure the image includes utrd, or this client and the UniFi app will not be able to reach the router afterwards.')) return;
+  run('Starting sysupgrade…', async () => {
+    const m = await FW.utrfw(fwShell, `install${keep ? '' : ' --wipe'}`);
+    fwState.job = { ...fwState.job, state: 'installing' };
+    fwRenderJob(fwState.job);
+    log(`sysupgrade starting in ${m.starting_in}s (keep settings: ${m.keep_settings}).`, 'ok');
+    toast('Installing; the router will reboot', 'ok', 6000);
+  });
+});
+
+// ---------- Image picker ----------
+// mode: 'sysupgrade' (OpenWrt upgrade), 'factory' (install from stock), 'stock'.
+async function fwOpenPicker(mode) {
+  fwPicker = { mode, list: [] };
+  const titles = { sysupgrade: 'Upgrade OpenWrt', factory: 'Install OpenWrt', stock: 'Upgrade stock' };
+  $('fwPickTitle').textContent = titles[mode];
+  const src = $('fwSource');
+  src.innerHTML = mode === 'stock'
+    ? '<option value="ubiquiti">Ubiquiti releases</option>'
+    : '<option value="github">GitHub releases</option><option value="snapshot">OpenWrt snapshots</option><option value="custom">URL and SHA-256</option>';
+  $('fwRepo').value = LS.get('fwRepo', 'divinehawk/openwrt');
+  $('fwPickCard').classList.remove('section-hidden');
+  $('fwPickCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  await fwLoadList();
+}
+
+async function fwLoadList() {
+  const mode = fwPicker.mode;
+  const source = $('fwSource').value;
+  $('fwRepoRow').classList.toggle('section-hidden', source !== 'github');
+  $('fwCustomRow').classList.toggle('section-hidden', source !== 'custom');
+  $('fwImageRow').classList.toggle('section-hidden', source === 'custom');
+  $('fwPickWarn').textContent = mode === 'stock'
+    ? `Stock writes the upgrade to the slot it is not running from (kernel${fwState.running_slot === 0 ? 1 : 0}) and reboots into it.`
+    : source === 'snapshot'
+      ? 'Official snapshots do not include utrd: after flashing one, neither this client nor the UniFi app can reach the router over Bluetooth. Use LuCI or ssh from then on.'
+      : 'Make sure the image includes utrd. Without it, neither this client nor the UniFi app can reach the router over Bluetooth afterwards.';
+  if (source === 'custom') { fwPicker.list = []; return; }
+  const sel = $('fwImage');
+  sel.innerHTML = '<option>Loading…</option>';
+  try {
+    const fetchJSON = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`); return r.json(); };
+    const type = mode === 'factory' ? 'factory' : 'sysupgrade';
+    if (mode === 'stock') {
+      if (!fwState.stock_platform) throw new Error('The router did not report its model.');
+      fwPicker.list = (await FW.stockVersions(fetchJSON, fwState.stock_platform)).map(f => ({ ...f, label: `${f.version} (${f.channel}, ${fmtBytes(f.size)})` }));
+    } else if (source === 'snapshot') {
+      fwPicker.list = await FW.snapshotImages(fetchJSON, fwState.profile, type);
+    } else {
+      LS.set('fwRepo', $('fwRepo').value.trim());
+      fwPicker.list = await FW.githubImages(fetchJSON, $('fwRepo').value.trim(), fwState.profile, type);
+    }
+    sel.innerHTML = fwPicker.list.length
+      ? fwPicker.list.map((x, i) => `<option value="${i}">${escHtml(x.label)}</option>`).join('')
+      : `<option value="">No ${escHtml(FW.imageName(fwState.profile, type))} found</option>`;
+  } catch (e) {
+    sel.innerHTML = `<option value="">Could not load the list: ${escHtml(e.message)}</option>`;
+  }
+}
+
+$('fwSource').addEventListener('change', () => fwLoadList());
+$('fwRepoLoad').addEventListener('click', () => fwLoadList());
+$('fwPickClose').addEventListener('click', () => $('fwPickCard').classList.add('section-hidden'));
+
+function fwChosenImage() {
+  if ($('fwSource').value === 'custom') {
+    const url = $('fwCustomUrl').value.trim();
+    const sha256 = $('fwCustomSha').value.trim().toLowerCase();
+    if (!FW.isSafeUrl(url)) throw new Error('That URL is not allowed (http/https, no quotes or spaces).');
+    if (!FW.isSha256(sha256)) throw new Error('The SHA-256 must be 64 hex digits.');
+    return { url, sha256, size: 0, label: url };
+  }
+  const img = fwPicker.list[Number($('fwImage').value)];
+  if (!img) throw new Error('Choose an image first.');
+  return img;
+}
+
+$('fwPickStart').addEventListener('click', async () => {
+  let img;
+  try { img = fwChosenImage(); } catch (e) { toast(e.message, 'warn'); return; }
+  const mode = fwPicker.mode;
+  if (mode === 'sysupgrade') {
+    await run('Starting the download…', async () => {
+      await FW.openwrtFetch(fwShell, img.url, img.sha256);
+      log(`Downloading ${img.url}`, 'info');
+      $('fwPickCard').classList.add('section-hidden');
+      fwState.job = { state: 'starting', bytes: 0, total: 0 };
+      fwRenderJob(fwState.job);
+      fwStartJobPoll();
+    });
+  } else if (mode === 'stock') {
+    if (!confirm(`Upgrade stock to ${img.version}?\n\nThe router downloads it (${fmtBytes(img.size)}), checks it, and stock's updater writes it and reboots.`)) return;
+    await fwRunStockScript('upgrade-stock', FW.upgradeStockScript(img), '/tmp/utr-stock.bin', img.size,
+      'Stock is writing the upgrade and will reboot into it. Reconnect in a few minutes.');
+  } else {
+    if (!confirm(`Install OpenWrt into kernel1?\n\n${img.label}\n\nThe router downloads the factory image, writes kernel1, sets up the boot chooser, points the boot selector at OpenWrt and reboots. If any step fails, stock keeps booting.`)) return;
+    await fwRunStockScript('install-openwrt', FW.installOpenWrtScript(img), '/tmp/utr-factory.ubi', img.size,
+      'OpenWrt is installed; the router is rebooting into it. Reconnect in about a minute.');
+  }
+});
+
+// ---------- Stock scripts ----------
+async function fwRunStockScript(name, text, downloadFile, expected, doneMsg) {
+  const path = `/tmp/utr-${name}.sh`;
+  const logPath = `/tmp/utr-${name}.log`;
+  return run('Uploading the script…', async () => {
+    await FW.stageScript(fwShell, path, text, (i, n) => setBusyLabel(`Uploading the script ${i}/${n}…`));
+    await FW.startScript(fwShell, fwState, path, logPath);
+    $('fwPickCard').classList.add('section-hidden');
+    log(`Started ${name} on the router.`, 'info');
+    const labels = { check: 'Checking', download: 'Downloading', verify: 'Checking the download', flash: 'Writing kernel1',
+      env: 'Setting up the boot chooser', select: 'Pointing the boot selector', erase: 'Erasing kernel1', upgrade: 'Stock is installing the upgrade' };
+    const started = Date.now();
+    for (;;) {
+      await new Promise(r => setTimeout(r, 2000));
+      if (!session) { log(`${name}: the link dropped (the router is probably rebooting).`, 'warn'); return; }
+      let p;
+      try { p = await FW.pollScript((c) => session.shell(c, 15000, { quiet: true }), logPath, downloadFile || '/tmp/none'); }
+      catch (e) { if (!session) return; continue; }
+      if (p.failed) throw new Error(`${name}: ${p.failed}`);
+      if (p.done) { log(doneMsg, 'ok'); toast(doneMsg, 'ok', 8000); fwNotice(doneMsg, ''); return; }
+      let label = labels[p.step] || 'Working';
+      if (p.step === 'download' && p.size) label += ` ${fmtBytes(p.size)}${expected ? ` of ${fmtBytes(expected)}` : ''}`;
+      setBusyLabel(`${label}…`);
+      if (Date.now() - started > 20 * 60 * 1000) throw new Error(`${name}: no result after 20 minutes; see ${logPath} on the router.`);
+    }
+  });
+}
+
+// ---------- Actions ----------
+async function fwAction(id) {
+  const st = fwState;
+  switch (id) {
+    case 'upgradeOpenWrt': return fwOpenPicker('sysupgrade');
+    case 'installOpenWrt': return fwOpenPicker('factory');
+    case 'upgradeStock': return fwOpenPicker('stock');
+    case 'switchToStock':
+      if (!confirm('Switch to the stock firmware?\n\nThe router reboots into stock (kernel0). OpenWrt and its settings stay in kernel1; switch back from this tab on stock. Stock may want its own password when you reconnect.')) return;
+      return run('Switching to stock…', async () => {
+        if (fwSavedBackup()) LS.set('fwTrip', '1');
+        const m = await FW.utrfw(fwShell, 'boot stock');
+        const msg = `Boot selector set to stock; rebooting in ${m.rebooting_in}s. Reconnect in about a minute.`;
+        log(msg, 'ok'); toast(msg, 'ok', 8000); fwNotice(msg, '');
+      });
+    case 'switchToOpenWrt':
+      if (!confirm('Switch to OpenWrt?\n\nThe router reboots into OpenWrt (kernel1). Stock stays in kernel0.')) return;
+      return fwRunStockScript('switch-openwrt', FW.switchToOpenWrtScript(), '', 0,
+        'Boot selector set to OpenWrt; rebooting. Reconnect in about a minute.');
+    case 'removeOpenWrt': {
+      const typed = prompt('Remove OpenWrt from kernel1?\n\nThis erases OpenWrt and its settings and removes the boot chooser, so stock can upgrade itself. Back up OpenWrt\'s settings first if you want them.\n\nType REMOVE to continue.');
+      if (typed !== 'REMOVE') return;
+      LS.set('fwTrip', '1');
+      return fwRunStockScript('remove-openwrt', FW.removeOpenWrtScript(), '', 0, 'OpenWrt removed; kernel1 is free for a stock upgrade.')
+        .then(() => fwRefresh(true));
+    }
+    case 'backup':
+      return run('Backing up settings…', async () => {
+        const b = await FW.backup(fwShell);
+        const at = new Date().toISOString();
+        LS.setJSON('fwBackup', { profile: st.profile, sha256: b.sha256, size: b.data.length, at, b64: FW.b64(b.data) });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([b.data], { type: 'application/gzip' }));
+        a.download = `utr-${st.profile || 'openwrt'}-settings-${at.slice(0, 10)}.tar.gz`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        log(`Settings backed up (${fmtBytes(b.data.length)}), saved in this browser and downloaded.`, 'ok');
+        renderFw();
+      });
+    case 'restore': return fwRestore();
+  }
+}
+
+async function fwRestore() {
+  const saved = fwSavedBackup();
+  let data;
+  if (saved && confirm(`Restore the backup saved in this browser (${saved.at.slice(0, 16).replace('T', ' ')}, ${fmtBytes(saved.size)}, ${saved.profile})?\n\nCancel to choose a file instead.`)) {
+    data = FW.unb64(saved.b64);
+    if (await FW.sha256Hex(data) !== saved.sha256) { toast('The saved backup is damaged.', 'error'); return; }
+  } else {
+    const file = await new Promise((resolve) => {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = '.tar.gz,.tgz,application/gzip';
+      inp.onchange = () => resolve(inp.files[0] || null);
+      inp.click();
+    });
+    if (!file) return;
+    data = new Uint8Array(await file.arrayBuffer());
+  }
+  if (!confirm(`Restore ${fmtBytes(data.length)} of settings and reboot?`)) return;
+  return run('Uploading settings…', async () => {
+    const m = await FW.restore(fwShell, data, { onProgress: (n, t) => setBusyLabel(`Uploading settings ${fmtBytes(n)} of ${fmtBytes(t)}…`) });
+    LS.set('fwTrip', ''); LS.set('fwTripK1', '');
+    const msg = `Settings restored; rebooting in ${m.rebooting_in}s.`;
+    log(msg, 'ok'); toast(msg, 'ok', 8000); fwNotice(msg, '');
+  });
+}
+
+$('fwActions').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-fw-action]');
+  if (b && !b.disabled) fwAction(b.dataset.fwAction);
+});
+$('fwRefresh').addEventListener('click', () => fwRefresh());
+$('fwTripReset').addEventListener('click', (e) => { e.preventDefault(); LS.set('fwTrip', ''); LS.set('fwTripK1', ''); if (fwState) renderFw(); });
+
+// Called when the link goes: nothing read on that session still holds.
+function fwForget() {
+  fwStopJobPoll();
+  fwState = null;
+  fwLoadedFor = null;
+}
 
 // ============================================================
 // Init

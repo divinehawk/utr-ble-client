@@ -194,7 +194,46 @@ handshake and loads the config. Features:
   you loaded it.
 - An SSH on/off switch that shows the router's current setting, and a
   log tab.
+- A **firmware** tab for units running the OpenWrt port alongside stock
+  (see below).
 - Light and dark themes (follows the OS; toggle in the sidebar).
+
+### Firmware tab
+
+The OpenWrt port installs itself in the `kernel1` slot and leaves stock in
+`kernel0`; a small `bs` partition picks which one boots. The tab reads
+which firmware is running, what each slot holds and where the selector
+points, and offers what is safe from there:
+
+| Running | Actions |
+|---|---|
+| OpenWrt (with utrd) | upgrade OpenWrt (sysupgrade, settings kept or not), switch to stock, back up / restore settings |
+| Stock, OpenWrt installed | switch to OpenWrt, remove OpenWrt |
+| Stock, no OpenWrt | upgrade stock, install OpenWrt |
+
+Images are never sent over Bluetooth: the router downloads them itself,
+and refuses one whose SHA-256 is not the expected one. Stock versions
+come from Ubiquiti's firmware service, OpenWrt images from a GitHub
+repository's releases, OpenWrt snapshots, or a URL with its SHA-256.
+
+On OpenWrt the router's utrd does the work (`utr-fw` commands). On stock
+the tab uploads a short script and runs stock's own tools; installing
+OpenWrt writes and checks the slot and the boot chooser before the boot
+selector moves, so a failure part way leaves stock booting.
+
+Stock cannot be written from OpenWrt, and stock always upgrades into the
+slot it is not running from, which is OpenWrt's. The tab's guide walks
+through upgrading stock anyway: back up OpenWrt's settings to the
+browser, remove OpenWrt, upgrade stock twice (once into `kernel1`, once
+back into `kernel0`), reinstall OpenWrt and restore the settings. TFTP
+recovery, which always writes `kernel0`, is the way that keeps OpenWrt.
+
+The firmware logic is tested without a router, its stock-side scripts run
+for real under busybox and dash against a fake one:
+
+``` bash
+node --test web/test/
+```
 
 ### Platform support
 
