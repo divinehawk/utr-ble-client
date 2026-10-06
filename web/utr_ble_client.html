@@ -1824,7 +1824,6 @@ function updateDeviceMeta() {
   if (lastStatus?.version) parts.push(`Firmware ${lastStatus.version}`);
   if (cfgLoaded) parts.push(`${Object.keys(originalCfg).length} config keys`);
   $('devMeta').textContent = parts.join(' · ');
-  if (lastStatus?.model_display) $('devName').textContent = lastStatus.model_display;
 }
 
 // ---------- Tabs ----------
@@ -1898,7 +1897,10 @@ async function establishSession(device) {
 
   session = s;
   LS.set('username', user);
-  setConnected(true, device.name || known.model);
+  // Named by model, from the service it answered on. The advertised name
+  // will not do: stock gives the UTR "UTR" but the UTR-LR "EA08" (its
+  // sys-db.txt), and utrd under OpenWrt advertises a name of its own.
+  setConnected(true, known.model);
   log('Session ready.', 'ok');
   toast('Connected · session ready', 'ok');
   setBusyLabel('Reading config…');
