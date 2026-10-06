@@ -93,7 +93,10 @@ echo "curl $*" >> "$ROOT/calls"
 [ -f "$ROOT/fail/curl" ] && exit 7
 out=; url=
 while [ $# -gt 0 ]; do case $1 in -o) out=$2; shift;; -*) ;; *) url=$1;; esac; shift; done
-cp "$ROOT/www/\${url##*/}" "$out"`,
+case $url in
+  file://*) cp "\${url#file://}" "$out" ;;
+  *) cp "$ROOT/www/\${url##*/}" "$out" ;;
+esac`,
   'syswrapper.sh': `#!/bin/sh
 echo "syswrapper.sh $*" >> "$ROOT/calls"
 [ -f "$ROOT/fail/syswrapper" ] && exit 3
@@ -208,6 +211,18 @@ test('URLs that would need quoting are refused', () => {
   for (const bad of ["https://x/a'b", 'https://x/a b', 'https://x/$(id)', 'https://x/`id`', 'https://x/a|b', 'https://x/a>b', 'ftp://x/a', 'https://x/a;reboot', '']) {
     assert.equal(FW.isSafeUrl(bad), false, bad);
   }
+});
+
+test('local images are /tmp files with plain names only', () => {
+  assert.ok(FW.isLocalImage('file:///tmp/openwrt-ipq40xx-generic-ubnt_utr-lr-squashfs-factory.ubi'));
+  for (const bad of ['file:///etc/passwd', 'file:///tmp/../etc/x', 'file:///tmp/a/b', "file:///tmp/a'b", 'file:///tmp/.hidden',
+    'file:///tmp/a b', 'file://tmp/x', 'file:///tmp/', '']) {
+    assert.equal(FW.isLocalImage(bad), false, bad);
+  }
+  assert.doesNotThrow(() => FW.installOpenWrtScript({ url: 'file:///tmp/f.ubi', sha256: 'a'.repeat(64) }));
+  assert.throws(() => FW.installOpenWrtScript({ url: 'file:///etc/shadow', sha256: 'a'.repeat(64) }));
+  assert.throws(() => FW.upgradeStockScript({ url: 'file:///tmp/f.bin', sha256: 'a'.repeat(64), md5: 'b'.repeat(32) }),
+    'stock upgrades stay on Ubiquiti URLs');
 });
 
 test('selectors are classified by their first byte and the vendor tail', () => {
@@ -477,6 +492,18 @@ for (const sh of SHELLS) {
     const after = await FW.detect(r.shell);
     assert.equal(after.chooser, true);
     assert.equal(FW.actions(after).switchToOpenWrt.enabled, true);
+  });
+
+  test(`[${sh}] install OpenWrt from an image copied onto the router`, async (t) => {
+    const r = fakeStock(sh, { k1: 'stock', chooser: false });
+    t.after(r.cleanup);
+    writeFileSync(join(r.root, 'tmp', 'openwrt-factory.ubi'), factory);
+    const st = await FW.detect(r.shell);
+    const res = await runScript(r, st, 'install', FW.installOpenWrtScript({ url: 'file:///tmp/openwrt-factory.ubi', sha256: sha256(factory) }));
+    assert.equal(res.failed, '', res.lines.join('\n'));
+    assert.equal(res.done, true);
+    assert.deepEqual(r.read('dev/mtd13').subarray(0, factory.length), factory);
+    assert.equal(r.selector(), 'ffffffff2be84da3');
   });
 
   test(`[${sh}] a failed install leaves stock booting`, async (t) => {

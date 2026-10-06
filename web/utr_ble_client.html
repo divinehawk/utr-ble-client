@@ -2800,6 +2800,10 @@ FW.isMd5 = s => /^[0-9a-f]{32}$/.test(s || '');
 // URLs go into shell scripts and utrd command lines, so only characters that
 // need no quoting are accepted: no quotes, spaces, '>', '|', '$' or '`'.
 FW.isSafeUrl = s => /^https?:\/\/[A-Za-z0-9._~:\/?&=%+@,-]+$/.test(s || '');
+// An image already copied onto a stock router, for installing with no server
+// to fetch it from: stock's curl reads file:// like any other URL. /tmp only,
+// one name, nothing that needs quoting.
+FW.isLocalImage = s => /^file:\/\/\/tmp\/[A-Za-z0-9_][A-Za-z0-9._-]*$/.test(s || '');
 
 FW.hex = buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 FW.sha256Hex = async (bytes) => FW.hex(await crypto.subtle.digest('SHA-256', bytes));
@@ -3213,7 +3217,7 @@ echo "DONE the upgrade is written; stock reboots into it"
 // is written and checked before the boot selector moves, so a failure part way
 // leaves stock booting as before.
 FW.installOpenWrtScript = ({ url, sha256 }) => {
-  if (!FW.isSafeUrl(url) || !FW.isSha256(sha256)) throw new Error('Bad image URL or checksum.');
+  if (!(FW.isSafeUrl(url) || FW.isLocalImage(url)) || !FW.isSha256(sha256)) throw new Error('Bad image URL or checksum.');
   return FW.SCRIPT_HEAD + FW.SCRIPT_SELECTOR + `
 IMG=/tmp/utr-factory.ubi
 step check
@@ -3427,6 +3431,7 @@ async function fwLoadList() {
   const source = $('fwSource').value;
   $('fwRepoRow').classList.toggle('section-hidden', source !== 'github');
   $('fwCustomRow').classList.toggle('section-hidden', source !== 'custom');
+  $('fwCustomUrl').placeholder = mode === 'factory' ? 'https://…  or  file:///tmp/<name> on the router' : 'https://…';
   $('fwImageRow').classList.toggle('section-hidden', source === 'custom');
   $('fwPickWarn').textContent = mode === 'stock'
     ? `Stock writes the upgrade to the slot it is not running from (kernel${fwState.running_slot === 0 ? 1 : 0}) and reboots into it.`
@@ -3464,7 +3469,12 @@ function fwChosenImage() {
   if ($('fwSource').value === 'custom') {
     const url = $('fwCustomUrl').value.trim();
     const sha256 = $('fwCustomSha').value.trim().toLowerCase();
-    if (!FW.isSafeUrl(url)) throw new Error('That URL is not allowed (http/https, no quotes or spaces).');
+    const local = fwPicker.mode === 'factory' && FW.isLocalImage(url);
+    if (!FW.isSafeUrl(url) && !local) {
+      throw new Error(fwPicker.mode === 'factory'
+        ? 'That URL is not allowed: http(s) with no quotes or spaces, or file:///tmp/<name> for an image copied onto the router.'
+        : 'That URL is not allowed (http/https, no quotes or spaces).');
+    }
     if (!FW.isSha256(sha256)) throw new Error('The SHA-256 must be 64 hex digits.');
     return { url, sha256, size: 0, label: url };
   }
