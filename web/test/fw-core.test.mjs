@@ -221,8 +221,8 @@ test('local images are /tmp files with plain names only', () => {
   }
   assert.doesNotThrow(() => FW.installOpenWrtScript({ url: 'file:///tmp/f.ubi', sha256: 'a'.repeat(64) }));
   assert.throws(() => FW.installOpenWrtScript({ url: 'file:///etc/shadow', sha256: 'a'.repeat(64) }));
-  assert.throws(() => FW.upgradeStockScript({ url: 'file:///tmp/f.bin', sha256: 'a'.repeat(64), md5: 'b'.repeat(32) }),
-    'stock upgrades stay on Ubiquiti URLs');
+  assert.doesNotThrow(() => FW.upgradeStockScript({ url: 'file:///tmp/f.bin', sha256: 'a'.repeat(64) }));
+  assert.throws(() => FW.upgradeStockScript({ url: 'file:///etc/f.bin', sha256: 'a'.repeat(64) }));
 });
 
 test('selectors are classified by their first byte and the vendor tail', () => {
@@ -559,25 +559,56 @@ for (const sh of SHELLS) {
     const r = fakeStock(sh, { k1: 'formatted', chooser: false });
     t.after(r.cleanup);
     r.serve('stock.bin', stockImg);
-    const res = await runScript(r, { tools: ['setsid'] }, 'stock', FW.upgradeStockScript({ url: 'https://fw-download.ubnt.com/data/unifi-firmware/stock.bin', sha256: sha256(stockImg), md5: md5(stockImg) }));
+    const res = await runScript(r, { tools: ['setsid'] }, 'stock', FW.upgradeStockScript({ url: 'https://fw-download.ubnt.com/data/unifi-firmware/stock.bin', sha256: sha256(stockImg) }));
     assert.equal(res.failed, '', res.lines.join('\n'));
     assert.equal(res.done, true);
     const sw = r.calls().find(c => c.startsWith('syswrapper.sh'));
-    assert.equal(sw, `syswrapper.sh fwupdate ${r.root}/tmp/utr-stock.bin --md5sum=${md5(stockImg)}`);
+    assert.equal(sw, `syswrapper.sh fwupdate ${r.root}/tmp/utr-stock.bin --md5sum=${md5(stockImg)}`, 'the MD5 is taken on the router');
+  });
+
+  test(`[${sh}] upgrade stock from an image copied onto the router`, async (t) => {
+    const r = fakeStock(sh, { running: 1, k1: 'stock', chooser: false, bs: '010050e32be84da3' });
+    t.after(r.cleanup);
+    writeFileSync(join(r.root, 'tmp', 'BZ.ipq40xx_6.6.118.bin'), stockImg);
+    const res = await runScript(r, { tools: ['setsid'] }, 'stock', FW.upgradeStockScript({ url: 'file:///tmp/BZ.ipq40xx_6.6.118.bin', sha256: sha256(stockImg) }));
+    assert.equal(res.failed, '', res.lines.join('\n'));
+    assert.ok(r.calls().some(c => c.startsWith('syswrapper.sh fwupdate')));
+  });
+
+  test(`[${sh}] upgrade stock from just a URL, as the app does`, async (t) => {
+    const r = fakeStock(sh, { k1: 'formatted', chooser: false });
+    t.after(r.cleanup);
+    r.serve('stock.bin', stockImg);
+    const script = FW.upgradeStockScript({ url: 'https://x/stock.bin' });
+    assert.ok(!script.includes('sha256sum'), 'no checksum to compare without one');
+    const res = await runScript(r, { tools: ['setsid'] }, 'stock', script);
+    assert.equal(res.failed, '', res.lines.join('\n'));
+    assert.equal(r.calls().find(c => c.startsWith('syswrapper.sh')), `syswrapper.sh fwupdate ${r.root}/tmp/utr-stock.bin --md5sum=${md5(stockImg)}`);
+    assert.throws(() => FW.upgradeStockScript({ url: 'https://x/stock.bin', sha256: 'abc' }), /64 hex digits/);
+  });
+
+  test(`[${sh}] upgrade stock refuses something that is not a stock image`, async (t) => {
+    const r = fakeStock(sh, { k1: 'formatted', chooser: false });
+    t.after(r.cleanup);
+    const factoryUbi = ubiSlot('openwrt').subarray(0, PEB);
+    r.serve('openwrt.ubi', factoryUbi);
+    const res = await runScript(r, { tools: [] }, 'stock', FW.upgradeStockScript({ url: 'https://x/openwrt.ubi', sha256: sha256(factoryUbi) }));
+    assert.match(res.failed, /not a stock firmware image/);
+    assert.ok(!r.calls().some(c => c.startsWith('syswrapper')));
   });
 
   test(`[${sh}] upgrade stock refuses while OpenWrt is in kernel1, and on a bad download`, async (t) => {
     const r = fakeStock(sh);
     t.after(r.cleanup);
     r.serve('stock.bin', stockImg);
-    let res = await runScript(r, { tools: [] }, 'stock', FW.upgradeStockScript({ url: 'https://x/stock.bin', sha256: sha256(stockImg), md5: md5(stockImg) }));
+    let res = await runScript(r, { tools: [] }, 'stock', FW.upgradeStockScript({ url: 'https://x/stock.bin', sha256: sha256(stockImg) }));
     assert.match(res.failed, /OpenWrt is installed in kernel1; remove it first/);
     assert.ok(!r.calls().some(c => c.startsWith('curl')));
 
     const r2 = fakeStock(sh, { k1: 'formatted', chooser: false });
     t.after(r2.cleanup);
     r2.serve('stock.bin', stockImg);
-    res = await runScript(r2, { tools: [] }, 'stock', FW.upgradeStockScript({ url: 'https://x/stock.bin', sha256: '0'.repeat(64), md5: md5(stockImg) }));
+    res = await runScript(r2, { tools: [] }, 'stock', FW.upgradeStockScript({ url: 'https://x/stock.bin', sha256: '0'.repeat(64) }));
     assert.match(res.failed, /SHA-256 does not match/);
     assert.ok(!r2.calls().some(c => c.startsWith('syswrapper')));
 
@@ -585,7 +616,7 @@ for (const sh of SHELLS) {
     t.after(r3.cleanup);
     r3.serve('stock.bin', stockImg);
     r3.fail('syswrapper');
-    res = await runScript(r3, { tools: [] }, 'stock', FW.upgradeStockScript({ url: 'https://x/stock.bin', sha256: sha256(stockImg), md5: md5(stockImg) }));
+    res = await runScript(r3, { tools: [] }, 'stock', FW.upgradeStockScript({ url: 'https://x/stock.bin', sha256: sha256(stockImg) }));
     assert.match(res.failed, /fwupdate exited 3/);
     assert.equal(res.done, false);
   });

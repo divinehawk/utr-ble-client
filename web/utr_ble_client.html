@@ -3190,10 +3190,15 @@ fw_setenv bootopenwrt
 echo "DONE"
 `;
 
-// Download, check, then hand to stock's own upgrader as a local file with its
-// MD5, which is the path that checks the file before writing it.
-FW.upgradeStockScript = ({ url, sha256, md5 }) => {
-  if (!FW.isSafeUrl(url) || !FW.isSha256(sha256) || !FW.isMd5(md5)) throw new Error('Bad firmware URL or checksum.');
+// Download, then hand to stock's own upgrader as a local file with its MD5,
+// which is the path that checks the file -- including Ubiquiti's signature --
+// before writing it. A SHA-256 is optional: stock's check is the one that
+// matters, as for the app's own custom-URL upgrade. One is still verified when
+// given (Ubiquiti's listed releases come with theirs). The MD5 the updater
+// wants is taken on the router.
+FW.upgradeStockScript = ({ url, sha256 = '' }) => {
+  if (!(FW.isSafeUrl(url) || FW.isLocalImage(url))) throw new Error('Bad firmware URL.');
+  if (sha256 && !FW.isSha256(sha256)) throw new Error('The SHA-256 must be 64 hex digits, or left out.');
   return FW.SCRIPT_HEAD + `
 IMG=/tmp/utr-stock.bin
 step check
@@ -3204,9 +3209,11 @@ step download
 rm -f $IMG
 curl -s -L --retry 2 --connect-timeout 15 -o $IMG ${sq(url)} || fail "the download failed"
 step verify
-[ "$(sha256sum $IMG | cut -d' ' -f1)" = "${sha256}" ] || { rm -f $IMG; fail "the download's SHA-256 does not match"; }
+${sha256 ? `[ "$(sha256sum $IMG | cut -d' ' -f1)" = "${sha256}" ] || { rm -f $IMG; fail "the download's SHA-256 does not match"; }
+` : ''}[ "$(dd if=$IMG bs=6 count=1 2>/dev/null)" = "UBNTBZ" ] || { rm -f $IMG; fail "that is not a stock firmware image (UBNTBZ)"; }
+MD5=$(md5sum $IMG | cut -d' ' -f1)
 step upgrade
-syswrapper.sh fwupdate $IMG --md5sum=${md5}
+syswrapper.sh fwupdate $IMG --md5sum=$MD5
 rc=$?
 [ $rc = 0 ] || fail "syswrapper.sh fwupdate exited $rc"
 echo "DONE the upgrade is written; stock reboots into it"
@@ -3418,7 +3425,7 @@ async function fwOpenPicker(mode) {
   $('fwPickTitle').textContent = titles[mode];
   const src = $('fwSource');
   src.innerHTML = mode === 'stock'
-    ? '<option value="ubiquiti">Ubiquiti releases</option>'
+    ? '<option value="ubiquiti">Ubiquiti releases</option><option value="custom">URL and SHA-256 (e.g. early access)</option>'
     : '<option value="github">GitHub releases</option><option value="snapshot">OpenWrt snapshots</option><option value="custom">URL and SHA-256</option>';
   $('fwRepo').value = LS.get('fwRepo', 'divinehawk/openwrt');
   $('fwPickCard').classList.remove('section-hidden');
@@ -3431,7 +3438,8 @@ async function fwLoadList() {
   const source = $('fwSource').value;
   $('fwRepoRow').classList.toggle('section-hidden', source !== 'github');
   $('fwCustomRow').classList.toggle('section-hidden', source !== 'custom');
-  $('fwCustomUrl').placeholder = mode === 'factory' ? 'https://…  or  file:///tmp/<name> on the router' : 'https://…';
+  $('fwCustomUrl').placeholder = mode === 'sysupgrade' ? 'https://…' : 'https://…  or  file:///tmp/<name> on the router';
+  $('fwCustomSha').placeholder = mode === 'stock' ? 'optional: stock checks the image\'s signature itself' : '';
   $('fwImageRow').classList.toggle('section-hidden', source === 'custom');
   $('fwPickWarn').textContent = mode === 'stock'
     ? `Stock writes the upgrade to the slot it is not running from (kernel${fwState.running_slot === 0 ? 1 : 0}) and reboots into it.`
@@ -3469,13 +3477,20 @@ function fwChosenImage() {
   if ($('fwSource').value === 'custom') {
     const url = $('fwCustomUrl').value.trim();
     const sha256 = $('fwCustomSha').value.trim().toLowerCase();
-    const local = fwPicker.mode === 'factory' && FW.isLocalImage(url);
+    // Stock checks its own images' signatures; an OpenWrt image has none.
+    const shaOptional = fwPicker.mode === 'stock';
+    // Stock-side installs run curl, which reads files too; OpenWrt's
+    // downloader is utrd's and wants http(s).
+    const onStock = fwPicker.mode !== 'sysupgrade';
+    const local = onStock && FW.isLocalImage(url);
     if (!FW.isSafeUrl(url) && !local) {
-      throw new Error(fwPicker.mode === 'factory'
+      throw new Error(onStock
         ? 'That URL is not allowed: http(s) with no quotes or spaces, or file:///tmp/<name> for an image copied onto the router.'
         : 'That URL is not allowed (http/https, no quotes or spaces).');
     }
-    if (!FW.isSha256(sha256)) throw new Error('The SHA-256 must be 64 hex digits.');
+    if (!(shaOptional && !sha256) && !FW.isSha256(sha256)) {
+      throw new Error(shaOptional ? 'The SHA-256 must be 64 hex digits, or left empty.' : 'The SHA-256 must be 64 hex digits.');
+    }
     return { url, sha256, size: 0, label: url };
   }
   const img = fwPicker.list[Number($('fwImage').value)];
@@ -3497,7 +3512,9 @@ $('fwPickStart').addEventListener('click', async () => {
       fwStartJobPoll();
     });
   } else if (mode === 'stock') {
-    if (!confirm(`Upgrade stock to ${img.version}?\n\nThe router downloads it (${fmtBytes(img.size)}), checks it, and stock's updater writes it and reboots.`)) return;
+    const what = img.version || img.url;
+    const size = img.size ? ` (${fmtBytes(img.size)})` : '';
+    if (!confirm(`Upgrade stock to ${what}?\n\nThe router downloads it${size}, checks it, and stock's updater writes it and reboots.`)) return;
     await fwRunStockScript('upgrade-stock', FW.upgradeStockScript(img), '/tmp/utr-stock.bin', img.size,
       'Stock is writing the upgrade and will reboot into it. Reconnect in a few minutes.');
   } else {
