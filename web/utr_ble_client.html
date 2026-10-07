@@ -3134,6 +3134,13 @@ FW.pollScript = async (shell, log, file) => {
 
 const sq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
 
+// The line that brings an image to $IMG. A file:///tmp image is copied with
+// cp, so a wrong name says which file is missing; a download keeps curl's
+// own error, so a failure says why.
+FW.fetchImageLine = (url) => FW.isLocalImage(url)
+  ? `cp ${url.slice('file://'.length)} $IMG || fail "cannot copy ${url.slice('file://'.length)}"`
+  : `OUT=$(curl -s -S -L --retry 2 --connect-timeout 15 -o $IMG ${sq(url)} 2>&1) || fail "the download failed: $OUT"`;
+
 // Shared preamble: fail loudly, and the slot helpers.
 FW.SCRIPT_HEAD = `#!/bin/sh
 fail() { echo "FAIL $*"; exit 1; }
@@ -3207,7 +3214,7 @@ if grep -q ubntbootid=0 /proc/cmdline && fw_printenv -n bootcmd_real 2>/dev/null
 fi
 step download
 rm -f $IMG
-curl -s -L --retry 2 --connect-timeout 15 -o $IMG ${sq(url)} || fail "the download failed"
+${FW.fetchImageLine(url)}
 step verify
 ${sha256 ? `[ "$(sha256sum $IMG | cut -d' ' -f1)" = "${sha256}" ] || { rm -f $IMG; fail "the download's SHA-256 does not match"; }
 ` : ''}[ "$(dd if=$IMG bs=6 count=1 2>/dev/null)" = "UBNTBZ" ] || { rm -f $IMG; fail "that is not a stock firmware image (UBNTBZ)"; }
@@ -3232,7 +3239,7 @@ grep -q ubntbootid=0 /proc/cmdline || fail "stock is not running from kernel0"
 K1=$(mtdof kernel1); [ -n "$K1" ] || fail "no kernel1 partition"
 step download
 rm -f $IMG
-curl -s -L --retry 2 --connect-timeout 15 -o $IMG ${sq(url)} || fail "the download failed"
+${FW.fetchImageLine(url)}
 step verify
 [ "$(sha256sum $IMG | cut -d' ' -f1)" = "${sha256}" ] || { rm -f $IMG; fail "the download's SHA-256 does not match"; }
 [ "$(dd if=$IMG bs=4 count=1 2>/dev/null)" = "UBI#" ] || { rm -f $IMG; fail "that is not a UBI image (a factory.ubi is needed)"; }

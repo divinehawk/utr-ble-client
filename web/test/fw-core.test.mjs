@@ -93,10 +93,12 @@ echo "curl $*" >> "$ROOT/calls"
 [ -f "$ROOT/fail/curl" ] && exit 7
 out=; url=
 while [ $# -gt 0 ]; do case $1 in -o) out=$2; shift;; -*) ;; *) url=$1;; esac; shift; done
+# No file:// here: a local image must go through cp, never curl.
 case $url in
-  file://*) cp "\${url#file://}" "$out" ;;
-  *) cp "$ROOT/www/\${url##*/}" "$out" ;;
-esac`,
+  file://*) echo "curl: (1) Protocol \"file\" not supported or disabled in libcurl" >&2; exit 1 ;;
+esac
+[ -f "$ROOT/www/\${url##*/}" ] || { echo "curl: (22) The requested URL returned error: 404" >&2; exit 22; }
+cp "$ROOT/www/\${url##*/}" "$out"`,
   'syswrapper.sh': `#!/bin/sh
 echo "syswrapper.sh $*" >> "$ROOT/calls"
 [ -f "$ROOT/fail/syswrapper" ] && exit 3
@@ -494,6 +496,14 @@ for (const sh of SHELLS) {
     assert.equal(FW.actions(after).switchToOpenWrt.enabled, true);
   });
 
+  test(`[${sh}] a missing copied image is reported, not downloaded`, async (t) => {
+    const r = fakeStock(sh, { k1: 'stock', chooser: false });
+    t.after(r.cleanup);
+    const res = await runScript(r, { tools: ['setsid'] }, 'install', FW.installOpenWrtScript({ url: 'file:///tmp/missing.ubi', sha256: 'a'.repeat(64) }));
+    assert.match(res.failed, /cannot copy \S*\/tmp\/missing\.ubi/);
+    assert.ok(!r.calls().some(c => c.startsWith('curl')), 'a local image never goes through curl');
+  });
+
   test(`[${sh}] install OpenWrt from an image copied onto the router`, async (t) => {
     const r = fakeStock(sh, { k1: 'stock', chooser: false });
     t.after(r.cleanup);
@@ -510,6 +520,7 @@ for (const sh of SHELLS) {
     for (const [setup, sum, why] of [
       [() => {}, '0'.repeat(64), /SHA-256 does not match/],
       [(r) => r.fail('curl'), null, /download failed/],
+      [(r) => { rmSync(join(r.root, 'www', 'factory.ubi')); }, null, /download failed: curl: \(22\)/],
       [(r) => r.fail('ubiformat'), null, /could not write kernel1/],
       [(r) => r.fail('fw_setenv'), null, /fw_setenv failed/],
       [(r) => r.fail('mtd'), null, /mtd could not write/],
